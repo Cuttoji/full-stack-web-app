@@ -1,0 +1,348 @@
+// Prisma Schema for Task & Resource Management System
+// Database: PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== ENUMS ====================
+
+enum Role {
+  ADMIN
+  FINANCE
+  SALES
+  HEAD_TECH
+  LEADER
+  TECH
+}
+
+enum TaskStatus {
+  WAITING     // รอรับงาน (สีเทา)
+  IN_PROGRESS // กำลังทำ (สีฟ้า)
+  DONE        // จบงาน (สีเขียว)
+  CANCELLED   // ยกเลิก (สีแดง)
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum LeaveType {
+  SICK        // ลาป่วย
+  PERSONAL    // ลากิจ
+  VACATION    // ลาพักร้อน
+  OTHER       // อื่นๆ
+}
+
+enum SubUnitType {
+  RENTAL      // เครื่องเช่า
+  INSTALLATION // ติดตั้ง
+  PRINTER     // ปริ้นเตอร์
+}
+
+enum CarStatus {
+  AVAILABLE       // พร้อมใช้งาน
+  IN_USE          // กำลังใช้งาน
+  MAINTENANCE     // ซ่อมบำรุง
+  OUT_OF_SERVICE  // ปิดการใช้งาน
+}
+
+// ==================== MODELS ====================
+
+// แผนก (ฝ่ายขาย, การเงิน, แผนกช่าง)
+model Department {
+  id        String   @id @default(cuid())
+  name      String   @unique // ฝ่ายขาย, การเงิน, แผนกช่าง
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users    User[]
+  subUnits SubUnit[]
+
+  @@map("departments")
+}
+
+// กลุ่มย่อย (เฉพาะแผนกช่าง: เครื่องเช่า, ติดตั้ง, ปริ้นเตอร์)
+model SubUnit {
+  id           String      @id @default(cuid())
+  name         String      // เครื่องเช่า, ติดตั้ง, ปริ้นเตอร์
+  type         SubUnitType
+  departmentId String
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  department Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  users      User[]
+  tasks      Task[]
+
+  @@map("sub_units")
+}
+
+// ผู้ใช้งาน
+model User {
+  id            String   @id @default(cuid())
+  employeeId    String   @unique // รหัสพนักงาน
+  email         String   @unique
+  password      String
+  name          String
+  phone         String?
+  avatar        String?
+  role          Role     @default(TECH)
+  departmentId  String?
+  subUnitId     String?  // สำหรับ Tech ในแผนกช่าง
+  leaveQuota    Int      @default(15) // โควตาลาประจำปี (วัน)
+  leaveUsed     Int      @default(0)  // วันลาที่ใช้ไปแล้ว
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  department     Department?     @relation(fields: [departmentId], references: [id])
+  subUnit        SubUnit?        @relation(fields: [subUnitId], references: [id])
+  
+  // Relations
+  tasksCreated   Task[]          @relation("TaskCreator")
+  tasksAssigned  TaskAssignment[]
+  leavesRequested Leave[]        @relation("LeaveRequester")
+  leavesApproved Leave[]         @relation("LeaveApprover")
+  printerLogs    PrinterLog[]
+  taskImages     TaskImage[]
+  notifications  Notification[]
+  activityLogs   ActivityLog[]
+
+  @@index([departmentId])
+  @@index([subUnitId])
+  @@index([role])
+  @@map("users")
+}
+
+// รถ/เครื่องมือ
+model Car {
+  id              String    @id @default(cuid())
+  plateNumber     String    @unique // ทะเบียนรถ
+  licensePlate    String?   // ทะเบียนรถ (alternative)
+  name            String    // ชื่อรถ/เครื่องมือ
+  type            String?   // ประเภท
+  brand           String?   // ยี่ห้อ
+  model           String?   // รุ่น
+  year            Int?      // ปี
+  mileage         Int?      // เลขไมล์
+  status          CarStatus @default(AVAILABLE)
+  description     String?
+  lastMaintenance DateTime? // วันซ่อมบำรุงล่าสุด
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  tasks Task[]
+
+  @@map("cars")
+}
+
+// งาน (Job Order)
+model Task {
+  id            String     @id @default(cuid())
+  jobNumber     String     @unique // เลขที่งาน (Auto-generate)
+  title         String
+  description   String?
+  location      String?    // สถานที่
+  customerName  String?    // ชื่อลูกค้า
+  customerPhone String?    // เบอร์ลูกค้า
+  scheduledDate DateTime?  // วันที่กำหนด (สำหรับ Calendar)
+  startDate     DateTime
+  endDate       DateTime
+  startTime     String?    // เวลาเริ่ม (HH:mm)
+  endTime       String?    // เวลาสิ้นสุด (HH:mm)
+  status        TaskStatus @default(WAITING)
+  isLoop        Boolean    @default(false) // งานวนซ้ำ
+  loopPattern   String?    // รูปแบบการวนซ้ำ (daily, weekly, monthly)
+  loopInterval  Int?       // ระยะห่างการวนซ้ำ
+  loopEndDate   DateTime?  // วันสิ้นสุดการวนซ้ำ
+  parentTaskId  String?    // สำหรับงาน Loop (อ้างอิงงานหลัก)
+  subUnitId     String?    // กลุ่มงาน
+  carId         String?    // รถที่ใช้
+  createdById   String     // ผู้สร้างงาน
+  notes        String?    // หมายเหตุ
+  priority     Int        @default(1) // 1=Low, 2=Medium, 3=High
+  completedAt  DateTime?  // เวลาที่จบงาน
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  // Relations
+  subUnit      SubUnit?         @relation(fields: [subUnitId], references: [id])
+  car          Car?             @relation(fields: [carId], references: [id])
+  createdBy    User             @relation("TaskCreator", fields: [createdById], references: [id])
+  parentTask   Task?            @relation("TaskLoop", fields: [parentTaskId], references: [id])
+  childTasks   Task[]           @relation("TaskLoop")
+  assignments  TaskAssignment[]
+  images       TaskImage[]
+  printerLogs  PrinterLog[]
+  activityLogs ActivityLog[]
+
+  @@index([status])
+  @@index([startDate, endDate])
+  @@index([subUnitId])
+  @@index([createdById])
+  @@map("tasks")
+}
+
+// การมอบหมายงาน (หนึ่งงานมีได้หลายคน)
+model TaskAssignment {
+  id        String   @id @default(cuid())
+  taskId    String
+  userId    String
+  isLead    Boolean  @default(false) // หัวหน้าทีมในงานนี้
+  isPrimary Boolean  @default(false) // ช่างหลักของงาน
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, userId])
+  @@map("task_assignments")
+}
+
+// รูปภาพประกอบงาน (ก่อน-หลัง)
+model TaskImage {
+  id          String   @id @default(cuid())
+  taskId      String
+  uploadedBy  String
+  imageUrl    String
+  imageType   String   // BEFORE, AFTER, EVIDENCE
+  description String?
+  createdAt   DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [uploadedBy], references: [id])
+
+  @@index([taskId])
+  @@map("task_images")
+}
+
+// Log สำหรับงานปริ้นเตอร์ (Printer Specialization)
+model PrinterLog {
+  id            String   @id @default(cuid())
+  taskId        String
+  technicianId  String
+  printerModel  String?  // รุ่นเครื่องพิมพ์
+  serialNumber  String?  // Serial Number
+  symptom       String   // อาการ/ปัญหา
+  diagnosis     String?  // การวินิจฉัย
+  solution      String   // วิธีแก้ไข
+  partsUsed     String?  // อะไหล่ที่ใช้
+  partsDetail   Json?    // รายละเอียดอะไหล่ [{name, quantity, price}]
+  laborTime     Int?     // เวลาทำงาน (นาที)
+  rating        Int?     // คะแนนประเมิน 1-5
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  task       Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  technician User @relation(fields: [technicianId], references: [id])
+
+  @@index([taskId])
+  @@index([technicianId])
+  @@map("printer_logs")
+}
+
+// การลา
+model Leave {
+  id          String      @id @default(cuid())
+  userId      String
+  type        LeaveType
+  status      LeaveStatus @default(PENDING)
+  startDate   DateTime
+  endDate     DateTime
+  totalDays   Float       // จำนวนวันลา (รองรับ 0.5 วัน)
+  reason      String?     // เหตุผลการลา
+  approvedById String?    // ผู้อนุมัติ (Leader)
+  approvedAt  DateTime?
+  rejectedReason String?  // เหตุผลที่ไม่อนุมัติ
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  user       User  @relation("LeaveRequester", fields: [userId], references: [id], onDelete: Cascade)
+  approvedBy User? @relation("LeaveApprover", fields: [approvedById], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@index([startDate, endDate])
+  @@map("leaves")
+}
+
+// การแจ้งเตือน
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  type      String   // TASK, LEAVE, CONFLICT, SYSTEM
+  link      String?  // Link ไปยังหน้าที่เกี่ยวข้อง
+  isRead    Boolean  @default(false)
+  data      Json?    // ข้อมูลเพิ่มเติม
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+// Activity Log (สำหรับ Offline Sync และติดตามการเปลี่ยนแปลง)
+model ActivityLog {
+  id          String   @id @default(cuid())
+  userId      String
+  action      String   // CREATE, UPDATE, DELETE, STATUS_CHANGE
+  entityType  String   // TASK, LEAVE, USER, etc.
+  entityId    String
+  oldData     Json?
+  newData     Json?
+  taskId      String?  // Reference to task if related
+  syncStatus  String   @default("SYNCED") // PENDING, SYNCED, FAILED
+  deviceId    String?  // สำหรับ Offline sync
+  createdAt   DateTime @default(now())
+
+  user User  @relation(fields: [userId], references: [id])
+  task Task? @relation(fields: [taskId], references: [id])
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([syncStatus])
+  @@map("activity_logs")
+}
+
+// Offline Queue (สำหรับเก็บข้อมูลที่รอ Sync)
+model OfflineQueue {
+  id        String   @id @default(cuid())
+  deviceId  String
+  action    String
+  endpoint  String
+  method    String
+  payload   Json
+  status    String   @default("PENDING") // PENDING, PROCESSING, COMPLETED, FAILED
+  retryCount Int     @default(0)
+  error     String?
+  createdAt DateTime @default(now())
+  processedAt DateTime?
+
+  @@index([deviceId, status])
+  @@map("offline_queue")
+}
+
+// System Settings
+model SystemSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("system_settings")
+}

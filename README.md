@@ -1,36 +1,180 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Task & Resource Management System
 
-## Getting Started
+ระบบจัดการงานและทรัพยากร (Task & Resource Management) สำหรับองค์กรที่มีหลายแผนกและหลายบทบาท
 
-First, run the development server:
+## 🌟 Features
 
+### Role-Based Access Control
+- **ADMIN** - ผู้ดูแลระบบ: จัดการผู้ใช้, ดูรายงานทั้งหมด
+- **FINANCE** - การเงิน: ดูรายงาน, จัดการงบประมาณ
+- **SALES** - ฝ่ายขาย: สร้างงาน, ดูรายงาน
+- **HEAD_TECH** - หัวหน้าแผนกช่าง: จัดการรถ, มอบหมายงาน, ดูงานทั้งหมด
+- **LEADER** - หัวหน้าทีม: มอบหมายงาน, อนุมัติใบลา
+- **TECH** - ช่าง: รับงาน, อัปเดตสถานะ, บันทึกหลักฐาน
+
+### Task Management
+- สร้าง/แก้ไข/ลบงาน
+- สถานะงาน: รอรับงาน → กำลังทำ → จบงาน / ยกเลิก
+- มอบหมายช่างหลายคนต่องาน
+- จัดการรถประจำงาน
+- อัปโหลดรูปหลักฐานก่อน/หลังทำงาน
+- ฟอร์มบันทึกซ่อมปริ้นเตอร์ (สำหรับกลุ่มปริ้นเตอร์)
+- งานวนซ้ำ (รายวัน/รายสัปดาห์/รายเดือน)
+
+### Leave Management
+- ขอลา (ลาป่วย, ลากิจ, ลาพักร้อน)
+- หัวหน้าทีมอนุมัติ/ปฏิเสธใบลา
+- ติดตามโควตาวันลา
+
+### Calendar View
+- ดูงานในรูปแบบปฏิทิน
+- กรองตามกลุ่มงาน
+
+### Fleet Management
+- จัดการรถ (เพิ่ม/แก้ไข/ลบ)
+- ติดตามสถานะรถ (ว่าง/ใช้งาน/ซ่อมบำรุง)
+- ตรวจสอบความขัดแย้งการใช้รถ
+
+### Offline Support
+- ทำงานได้แม้ไม่มีอินเทอร์เน็ต
+- ซิงค์ข้อมูลอัตโนมัติเมื่อออนไลน์
+
+## 🛠️ Tech Stack
+
+- **Framework**: Next.js 16 (App Router)
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS 4
+- **Database**: PostgreSQL with Prisma ORM
+- **State Management**: React Context + TanStack Query
+- **Authentication**: JWT (jsonwebtoken + bcryptjs)
+- **Date Handling**: date-fns
+- **Icons**: Lucide React
+
+## 📦 Installation
+
+### Prerequisites
+- Node.js 18+
+- PostgreSQL 14+
+
+### Steps
+
+1. **Clone the repository**
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone <repository-url>
+cd full-stack-web-app
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. **Install dependencies**
+```bash
+npm install
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+3. **Setup environment variables**
+```bash
+cp .env.example .env
+```
+Edit `.env` with your database credentials:
+```env
+DATABASE_URL="postgresql://username:password@localhost:5432/task_management?schema=public"
+JWT_SECRET="your-super-secret-jwt-key"
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+4. **Setup database**
+```bash
+# Generate Prisma client
+npx prisma generate
 
-## Learn More
+# Run migrations
+npx prisma migrate dev --name init
 
-To learn more about Next.js, take a look at the following resources:
+# (Optional) Seed initial data
+npx prisma db seed
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+5. **Run the development server**
+```bash
+npm run dev
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+6. **Open in browser**
+```
+http://localhost:3000
+```
 
-## Deploy on Vercel
+## 📁 Project Structure
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```
+├── app/                    # Next.js App Router pages
+│   ├── api/               # API Routes
+│   │   ├── auth/          # Authentication endpoints
+│   │   ├── cars/          # Car management
+│   │   ├── leaves/        # Leave management
+│   │   ├── tasks/         # Task management
+│   │   └── users/         # User management
+│   ├── calendar/          # Calendar page
+│   ├── cars/              # Cars page
+│   ├── dashboard/         # Dashboard page
+│   ├── leaves/            # Leaves page
+│   ├── login/             # Login page
+│   ├── notifications/     # Notifications page
+│   ├── settings/          # Settings page
+│   ├── tasks/             # Tasks pages
+│   └── users/             # Users page
+├── components/            # React components
+│   ├── layout/            # Layout components
+│   ├── tasks/             # Task-related components
+│   └── ui/                # UI components
+├── contexts/              # React Context providers
+├── lib/                   # Utility functions & types
+├── prisma/                # Prisma schema & migrations
+└── public/                # Static files
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 🔑 API Endpoints
+
+### Authentication
+- `POST /api/auth/login` - Login
+- `GET /api/auth/me` - Get current user
+
+### Tasks
+- `GET /api/tasks` - List tasks (with pagination & filters)
+- `POST /api/tasks` - Create task
+- `GET /api/tasks/:id` - Get task details
+- `PATCH /api/tasks/:id` - Update task
+- `DELETE /api/tasks/:id` - Delete task
+- `POST /api/tasks/:id/assign` - Assign technicians
+
+### Leaves
+- `GET /api/leaves` - List leaves
+- `POST /api/leaves` - Create leave request
+- `PATCH /api/leaves/:id` - Update leave (approve/reject)
+
+### Cars
+- `GET /api/cars` - List cars
+- `POST /api/cars` - Create car
+- `PATCH /api/cars/:id` - Update car
+- `DELETE /api/cars/:id` - Delete car
+
+### Users
+- `GET /api/users` - List users
+- `POST /api/users` - Create user
+- `PATCH /api/users/:id` - Update user
+- `DELETE /api/users/:id` - Delete user
+
+## 🌐 Departments & Sub-Units
+
+### Departments
+1. **ฝ่ายขาย (Sales)**
+2. **การเงิน (Finance)**
+3. **แผนกช่าง (Tech)** - มี 3 กลุ่มย่อย:
+   - เครื่องเช่า (Rental)
+   - ติดตั้ง (Installation)
+   - ปริ้นเตอร์ (Printer)
+
+## 📝 License
+
+MIT License
+
+## 👥 Contributors
+
+- Your Name

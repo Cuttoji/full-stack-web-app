@@ -1,0 +1,824 @@
+'use client';
+
+import { useEffect, useState, useCallback } from 'react';
+import { DashboardLayout } from '@/components/layout/DashboardLayout';
+import { useAuth, useRoleAccess } from '@/contexts/AuthContext';
+import { Button, Card, Modal } from '@/components/ui';
+import { User, Role, Department, SubUnit, CreateUserRequest } from '@/lib/types';
+import { ROLE_LABELS } from '@/lib/types';
+import {
+  Plus,
+  Search,
+  Edit,
+  Trash2,
+  Users as UsersIcon,
+  Mail,
+  Phone,
+  Shield,
+  AlertTriangle,
+  Calendar,
+  Car as CarIcon,
+} from 'lucide-react';
+
+export default function UsersPage() {
+  const { user } = useAuth();
+  const { isAdmin } = useRoleAccess();
+  
+  const [users, setUsers] = useState<User[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [subUnits, setSubUnits] = useState<SubUnit[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  
+  // Filter states
+  const [search, setSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState<string>('');
+  const [departmentFilter, setDepartmentFilter] = useState<string>('');
+  
+  // Form states
+  const [formData, setFormData] = useState<CreateUserRequest>({
+    email: '',
+    password: '',
+    name: '',
+    role: Role.TECH,
+    departmentId: '',
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState('');
+
+  // Pagination
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+
+  const fetchUsers = useCallback(async () => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    try {
+      setIsLoading(true);
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: '20',
+      });
+
+      if (search) params.append('search', search);
+      if (roleFilter) params.append('role', roleFilter);
+      if (departmentFilter) params.append('departmentId', departmentFilter);
+
+      const response = await fetch(`/api/users?${params}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setUsers(data.data.data);
+        setTotalPages(data.data.totalPages);
+      }
+    } catch (error) {
+      console.error('Failed to fetch users:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [search, roleFilter, departmentFilter, page]);
+
+  const fetchDepartments = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    try {
+      const response = await fetch('/api/departments', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setDepartments(data.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch departments:', error);
+    }
+  };
+
+  const fetchSubUnits = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    try {
+      const response = await fetch('/api/sub-units', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setSubUnits(data.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch sub-units:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchUsers();
+    fetchDepartments();
+    fetchSubUnits();
+  }, [fetchUsers]);
+
+  const handleCreateUser = async () => {
+    setFormError('');
+    
+    if (!formData.email || !formData.password || !formData.name || !formData.departmentId) {
+      setFormError('กรุณากรอกข้อมูลให้ครบถ้วน');
+      return;
+    }
+
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    try {
+      setIsSubmitting(true);
+      const response = await fetch('/api/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        setIsCreateModalOpen(false);
+        resetForm();
+        fetchUsers();
+      } else {
+        setFormError(result.error || 'ไม่สามารถสร้างผู้ใช้ได้');
+      }
+    } catch {
+      setFormError('เกิดข้อผิดพลาด');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleUpdateUser = async () => {
+    if (!selectedUser) return;
+    setFormError('');
+
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    try {
+      setIsSubmitting(true);
+      
+      // Exclude password if empty
+      const updateData = { ...formData };
+      if (!updateData.password) {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { password: _password, ...rest } = updateData;
+        Object.assign(updateData, rest);
+        delete (updateData as { password?: string }).password;
+      }
+
+      const response = await fetch(`/api/users/${selectedUser.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(updateData),
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        setIsEditModalOpen(false);
+        setSelectedUser(null);
+        resetForm();
+        fetchUsers();
+      } else {
+        setFormError(result.error || 'ไม่สามารถอัปเดตได้');
+      }
+    } catch {
+      setFormError('เกิดข้อผิดพลาด');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!selectedUser) return;
+
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    try {
+      setIsSubmitting(true);
+      const response = await fetch(`/api/users/${selectedUser.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        setIsDeleteConfirmOpen(false);
+        setSelectedUser(null);
+        fetchUsers();
+      } else {
+        alert(result.error || 'ไม่สามารถลบได้');
+      }
+    } catch {
+      alert('เกิดข้อผิดพลาด');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const openEditModal = (user: User) => {
+    setSelectedUser(user);
+    setFormData({
+      email: user.email,
+      password: '',
+      name: user.name,
+      role: user.role,
+      departmentId: user.departmentId || '',
+      subUnitId: user.subUnitId || undefined,
+      phone: user.phone || undefined,
+      leaveQuota: user.leaveQuota,
+      permissions: user.permissions || {},
+    });
+    setFormError('');
+    setIsEditModalOpen(true);
+  };
+
+  const openDeleteConfirm = (user: User) => {
+    setSelectedUser(user);
+    setIsDeleteConfirmOpen(true);
+  };
+
+  const resetForm = () => {
+    setFormData({
+      email: '',
+      password: '',
+      name: '',
+      role: Role.TECH,
+      departmentId: '',
+    });
+    setFormError('');
+  };
+
+  const getRoleColor = (role: Role) => {
+    switch (role) {
+      case Role.ADMIN:
+        return 'bg-purple-100 text-purple-700';
+      case Role.FINANCE:
+        return 'bg-green-100 text-green-700';
+      case Role.SALES:
+        return 'bg-blue-100 text-blue-700';
+      case Role.HEAD_TECH:
+        return 'bg-orange-100 text-orange-700';
+      case Role.LEADER:
+        return 'bg-yellow-100 text-yellow-700';
+      case Role.TECH:
+        return 'bg-gray-100 text-gray-700';
+      default:
+        return 'bg-gray-100 text-gray-700';
+    }
+  };
+
+  // Filter sub-units based on selected department
+  const filteredSubUnits = subUnits.filter(
+    (su) => !formData.departmentId || su.departmentId === formData.departmentId
+  );
+
+  if (!isAdmin) {
+    return (
+      <DashboardLayout>
+        <div className="text-center py-12">
+          <Shield className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+          <p className="text-lg font-medium text-gray-600">ไม่มีสิทธิ์เข้าถึง</p>
+          <p className="text-sm text-gray-500">หน้านี้สำหรับ Admin เท่านั้น</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  return (
+    <DashboardLayout>
+      <div className="space-y-6 text-gray-800">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">จัดการผู้ใช้</h1>
+            <p className="text-gray-700">ดูและจัดการผู้ใช้ทั้งหมดในระบบ</p>
+          </div>
+          <Button
+            onClick={() => {
+              resetForm();
+              setIsCreateModalOpen(true);
+            }}
+            leftIcon={<Plus className="w-4 h-4" />}
+          >
+            เพิ่มผู้ใช้
+          </Button>
+        </div>
+
+        {/* Filters */}
+        <Card padding="sm">
+          <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
+            <div className="flex-1 w-full md:max-w-sm">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="ค้นหาชื่อ, อีเมล..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <select
+                value={roleFilter}
+                onChange={(e) => setRoleFilter(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">ทุกตำแหน่ง</option>
+                {Object.values(Role).map((role) => (
+                  <option key={role} value={role}>
+                    {ROLE_LABELS[role]}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={departmentFilter}
+                onChange={(e) => setDepartmentFilter(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">ทุกแผนก</option>
+                {departments.map((dept) => (
+                  <option key={dept.id} value={dept.id}>
+                    {dept.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </Card>
+
+        {/* Users List */}
+        {isLoading ? (
+          <div className="space-y-4 text-gray-800">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="h-20 bg-gray-100 rounded-lg animate-pulse" />
+            ))}
+          </div>
+        ) : users.length > 0 ? (
+          <Card padding="none">
+            <div className="overflow-x-auto text-gray-800">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      ผู้ใช้
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      ตำแหน่ง
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      แผนก
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      วันลา
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                      จัดการ
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {users.map((u) => (
+                    <tr key={u.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="flex-shrink-0 h-10 w-10">
+                            <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                              <span className="text-blue-600 font-medium">
+                                {u.name.charAt(0).toUpperCase()}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="ml-4">
+                            <div className="text-sm font-medium text-gray-900">{u.name}</div>
+                            <div className="text-sm text-gray-700 flex items-center gap-1">
+                              <Mail className="w-3 h-3" />
+                              {u.email}
+                            </div>
+                            {u.phone && (
+                              <div className="text-sm text-gray-700 flex items-center gap-1">
+                                <Phone className="w-3 h-3" />
+                                {u.phone}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs font-medium ${getRoleColor(u.role)}`}
+                        >
+                          {ROLE_LABELS[u.role]}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{u.department?.name || '-'}</div>
+                        {u.subUnit && (
+                          <div className="text-xs text-gray-700">{u.subUnit.name}</div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                        {u.leaveQuota} วัน
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <div className="flex justify-end gap-2">
+                          <Button size="sm" variant="ghost" onClick={() => openEditModal(u)}>
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          {u.id !== user?.id && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-red-600 hover:text-red-700"
+                              onClick={() => openDeleteConfirm(u)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        ) : (
+          <Card>
+            <div className="text-center py-12 text-gray-500">
+              <UsersIcon className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+              <p className="text-lg font-medium">ไม่พบผู้ใช้</p>
+              <p className="text-sm">ลองเปลี่ยนตัวกรองหรือเพิ่มผู้ใช้ใหม่</p>
+            </div>
+          </Card>
+        )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex justify-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+            >
+              ก่อนหน้า
+            </Button>
+            <span className="px-4 py-2 text-gray-600">
+              หน้า {page} จาก {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+            >
+              ถัดไป
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* Create/Edit User Modal */}
+      <Modal
+        isOpen={isCreateModalOpen || isEditModalOpen}
+        onClose={() => {
+          setIsCreateModalOpen(false);
+          setIsEditModalOpen(false);
+          setSelectedUser(null);
+          resetForm();
+        }}
+        title={isEditModalOpen ? 'แก้ไขผู้ใช้' : 'เพิ่มผู้ใช้ใหม่'}
+        size="lg"
+      >
+        <div className="space-y-4 text-gray-800">
+          {formError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+              {formError}
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                ชื่อ-นามสกุล <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="ชื่อ นามสกุล"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                อีเมล <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="email@example.com"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                รหัสผ่าน {!isEditModalOpen && <span className="text-red-500">*</span>}
+              </label>
+              <input
+                type="password"
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder={isEditModalOpen ? 'ว่างไว้หากไม่ต้องการเปลี่ยน' : '••••••••'}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">เบอร์โทร</label>
+              <input
+                type="tel"
+                value={formData.phone || ''}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="0812345678"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                ตำแหน่ง <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={formData.role}
+                onChange={(e) => setFormData({ ...formData, role: e.target.value as Role })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {Object.values(Role).map((role) => (
+                  <option key={role} value={role}>
+                    {ROLE_LABELS[role]}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                แผนก <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={formData.departmentId}
+                onChange={(e) => setFormData({ ...formData, departmentId: e.target.value, subUnitId: undefined })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">เลือกแผนก</option>
+                {departments.map((dept) => (
+                  <option key={dept.id} value={dept.id}>
+                    {dept.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">กลุ่มงาน</label>
+              <select
+                value={formData.subUnitId || ''}
+                onChange={(e) => setFormData({ ...formData, subUnitId: e.target.value || undefined })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled={!formData.departmentId}
+              >
+                <option value="">ไม่มี</option>
+                {filteredSubUnits.map((su) => (
+                  <option key={su.id} value={su.id}>
+                    {su.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">วันลาต่อปี</label>
+              <input
+                type="number"
+                value={formData.leaveQuota || 10}
+                onChange={(e) => setFormData({ ...formData, leaveQuota: parseInt(e.target.value) })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+
+          {/* Permissions Section */}
+          {isEditModalOpen && selectedUser && (
+            <div className="border-t pt-4 mt-4">
+              <h3 className="text-lg font-semibold mb-4">สิทธิ์การใช้งาน</h3>
+              
+              {/* Calendar & Tasks */}
+              <div className="mb-4">
+                <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+                  <Calendar className="w-4 h-4" />
+                  ปฏิทินและงาน
+                </h4>
+                <div className="space-y-3 pl-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">ดูปฏิทินทั้งหมด</p>
+                      <p className="text-xs text-gray-600">เข้าถึงปฏิทินของทีมและตารางงานทั้งหมด</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.permissions?.canViewAllCalendars || false}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          permissions: { ...formData.permissions, canViewAllCalendars: e.target.checked }
+                        })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">แก้ไขรายละเอียดงาน</p>
+                      <p className="text-xs text-gray-600">แก้ไขคำอธิบาย กำหนดเวลา และผู้รับมอบหมาย</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.permissions?.canEditTaskDetails || false}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          permissions: { ...formData.permissions, canEditTaskDetails: e.target.checked }
+                        })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">ลบงาน</p>
+                      <p className="text-xs text-gray-600">ลบงานออกจากระบบอย่างถาวร</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.permissions?.canDeleteTasks || false}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          permissions: { ...formData.permissions, canDeleteTasks: e.target.checked }
+                        })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Fleet Management */}
+              <div className="mb-4">
+                <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+                  <CarIcon className="w-4 h-4" />
+                  การจัดการรถ
+                </h4>
+                <div className="space-y-3 pl-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">จองรถ</p>
+                      <p className="text-xs text-gray-600">สำรองรถสำหรับการเดินทางธุรกิจ</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.permissions?.canBookVehicles || false}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          permissions: { ...formData.permissions, canBookVehicles: e.target.checked }
+                        })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">จัดการรถทั้งหมด</p>
+                      <p className="text-xs text-gray-600">เข้าถึงฐานข้อมูลรถแบบผู้ดูแลระบบ</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.permissions?.canManageFleet || false}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          permissions: { ...formData.permissions, canManageFleet: e.target.checked }
+                        })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-4 border-t">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => {
+                setIsCreateModalOpen(false);
+                setIsEditModalOpen(false);
+                setSelectedUser(null);
+                resetForm();
+              }}
+            >
+              ยกเลิก
+            </Button>
+            <Button
+              className="flex-1"
+              onClick={isEditModalOpen ? handleUpdateUser : handleCreateUser}
+              disabled={isSubmitting}
+              isLoading={isSubmitting}
+            >
+              {isEditModalOpen ? 'บันทึก' : 'เพิ่ม'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={isDeleteConfirmOpen}
+        onClose={() => {
+          setIsDeleteConfirmOpen(false);
+          setSelectedUser(null);
+        }}
+        title="ยืนยันการลบ"
+      >
+        <div className="space-y-4">
+          <div className="flex items-center gap-3 p-4 bg-red-50 rounded-lg">
+            <AlertTriangle className="w-6 h-6 text-red-500" />
+            <div>
+              <p className="font-medium text-red-900">คุณต้องการลบผู้ใช้นี้หรือไม่?</p>
+              <p className="text-sm text-red-700">{selectedUser?.name} ({selectedUser?.email})</p>
+            </div>
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => {
+                setIsDeleteConfirmOpen(false);
+                setSelectedUser(null);
+              }}
+            >
+              ยกเลิก
+            </Button>
+            <Button
+              variant="destructive"
+              className="flex-1"
+              onClick={handleDeleteUser}
+              disabled={isSubmitting}
+              isLoading={isSubmitting}
+            >
+              ลบ
+            </Button>
+          </div>
+        </div>
+      </Modal>
+    </DashboardLayout>
+  );
+}
