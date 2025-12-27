@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
           carId,
           carName: car?.licensePlate || car?.name || '',
           plateNumber: car?.licensePlate || car?.plateNumber || '',
-          conflictingTasks: carConflictTasks.map((t) => ({
+          conflictingTasks: carConflictTasks.map((t: typeof carConflictTasks[number]) => ({
             taskId: t.id,
             jobNumber: t.jobNumber,
             title: t.title,

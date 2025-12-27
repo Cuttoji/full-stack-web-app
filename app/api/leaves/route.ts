@@ -129,7 +129,7 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json<ApiResponse<Leave>>({
         success: true,
-        data: newLeave as Leave,
+        data: newLeave as unknown as Leave,
         message: 'ส่งคำขอลาสำเร็จ (Mock)',
       });
     }

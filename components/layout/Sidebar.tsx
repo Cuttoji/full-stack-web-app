@@ -5,6 +5,8 @@ import { usePathname } from 'next/navigation';
 import { useAuth, useRoleAccess } from '@/contexts/AuthContext';
 import { useOffline } from '@/contexts/OfflineContext';
 import { Role, RoleLabels } from '@/lib/types';
+import { cn } from '@/lib/cn';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Home,
   Calendar,
@@ -21,12 +23,12 @@ import {
   Clock,
   ClipboardList,
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 
 interface NavItem {
   href: string;
   label: string;
-  icon: React.ReactNode;
+  icon: any;
   roles: Role[];
 }
 
@@ -34,49 +36,49 @@ const navItems: NavItem[] = [
   {
     href: '/dashboard',
     label: 'หน้าหลัก',
-    icon: <Home className="w-5 h-5" />,
+    icon: Home,
     roles: [Role.ADMIN, Role.FINANCE, Role.SALES, Role.HEAD_TECH, Role.LEADER, Role.TECH],
   },
   {
     href: '/tasks',
     label: 'จัดการงาน',
-    icon: <ClipboardList className="w-5 h-5" />,
+    icon: ClipboardList,
     roles: [Role.ADMIN, Role.FINANCE, Role.HEAD_TECH, Role.LEADER, Role.TECH],
   },
   {
     href: '/calendar',
     label: 'ปฏิทิน',
-    icon: <Calendar className="w-5 h-5" />,
+    icon: Calendar,
     roles: [Role.ADMIN, Role.FINANCE, Role.HEAD_TECH, Role.LEADER, Role.TECH],
   },
   {
     href: '/leaves',
     label: 'การลา',
-    icon: <Clock className="w-5 h-5" />,
+    icon: Clock,
     roles: [Role.ADMIN, Role.LEADER, Role.TECH],
   },
   {
     href: '/cars',
     label: 'จัดการรถ',
-    icon: <Car className="w-5 h-5" />,
+    icon: Car,
     roles: [Role.ADMIN, Role.HEAD_TECH],
   },
   {
     href: '/users',
     label: 'จัดการผู้ใช้',
-    icon: <Users className="w-5 h-5" />,
+    icon: Users,
     roles: [Role.ADMIN],
   },
   {
     href: '/reports',
     label: 'รายงาน',
-    icon: <FileText className="w-5 h-5" />,
+    icon: FileText,
     roles: [Role.ADMIN, Role.FINANCE, Role.HEAD_TECH, Role.LEADER],
   },
   {
     href: '/settings',
     label: 'ตั้งค่า',
-    icon: <Settings className="w-5 h-5" />,
+    icon: Settings,
     roles: [Role.ADMIN],
   },
 ];
@@ -89,10 +91,23 @@ export function Sidebar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [notifications, setNotifications] = useState<number>(0);
   const [pendingReports, setPendingReports] = useState<number>(0);
+  const [activeIndex, setActiveIndex] = useState(0);
 
-  const filteredNavItems = navItems.filter((item) =>
-    item.roles.some((role) => hasRole(role))
+  // Memoize filtered nav items to prevent infinite loop
+  const filteredNavItems = useMemo(
+    () => navItems.filter((item) => item.roles.some((role) => hasRole(role))),
+    [hasRole]
   );
+
+  // Find active index based on pathname
+  useEffect(() => {
+    const index = filteredNavItems.findIndex(
+      (item) => pathname === item.href || pathname.startsWith(`${item.href}/`)
+    );
+    if (index !== -1 && index !== activeIndex) {
+      setActiveIndex(index);
+    }
+  }, [pathname, filteredNavItems, activeIndex]);
 
   useEffect(() => {
     // Fetch notification count
@@ -182,51 +197,141 @@ export function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-        {filteredNavItems.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
-          const showBadge = item.href === '/reports' && pendingReports > 0;
-          
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex items-center justify-between space-x-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${
-                isActive
-                  ? 'bg-gradient-to-r from-[#2D5BFF] to-[#5C7FFF] text-white font-semibold shadow-lg shadow-[#2D5BFF]/30'
-                  : 'text-gray-900 hover:bg-white/50 hover:backdrop-blur-md'
-              }`}
-              onClick={() => setIsMobileMenuOpen(false)}
-            >
-              <div className="flex items-center space-x-3">
-                {item.icon}
-                <span>{item.label}</span>
-              </div>
-              {showBadge && (
-                <span className="bg-gradient-to-r from-red-500 to-red-600 text-white text-xs px-2 py-0.5 rounded-full font-semibold shadow-lg shadow-red-500/30">
-                  {pendingReports}
-                </span>
-              )}
-            </Link>
-          );
-        })}
+      <nav className="relative flex-1 py-4 overflow-y-auto">
+        {/* Menu Items */}
+        <ul className="relative z-10 px-4 space-y-1">
+          {filteredNavItems.map((item, index) => {
+            const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+            const showBadge = item.href === '/reports' && pendingReports > 0;
+            const Icon = item.icon;
+            
+            return (
+              <li key={item.href} className="relative">
+                {/* Framer Motion Indicator - Desktop Only */}
+                {isActive && (
+                  <motion.div
+                    layoutId="sidebar-indicator"
+                    className="hidden lg:block absolute inset-0 -left-4 -right-4"
+                    initial={false}
+                    transition={{
+                      type: 'spring',
+                      stiffness: 350,
+                      damping: 30,
+                    }}
+                  >
+                    {/* Main Indicator Bar */}
+                    <div 
+                      className="absolute right-0 w-[calc(100%+16px)] h-full bg-white rounded-l-[28px]"
+                      style={{
+                        boxShadow: '0 4px 20px rgba(45, 91, 255, 0.15)',
+                      }}
+                    />
+                    
+                    {/* Top Curved Hole */}
+                    <div 
+                      className="absolute -top-[28px] right-0 w-[28px] h-[28px]"
+                      style={{
+                        background: 'transparent',
+                        borderBottomRightRadius: '28px',
+                        boxShadow: '12px 12px 0 12px white',
+                      }}
+                    />
+                    
+                    {/* Bottom Curved Hole */}
+                    <div 
+                      className="absolute -bottom-[28px] right-0 w-[28px] h-[28px]"
+                      style={{
+                        background: 'transparent',
+                        borderTopRightRadius: '28px',
+                        boxShadow: '12px -12px 0 12px white',
+                      }}
+                    />
+                    
+                    {/* Blue accent line on the left edge */}
+                    <motion.div 
+                      className="absolute left-6 top-1/2 -translate-y-1/2 w-1 h-8 rounded-full bg-gradient-to-b from-[#2D5BFF] to-[#5C7FFF]"
+                      initial={{ scaleY: 0 }}
+                      animate={{ scaleY: 1 }}
+                      transition={{ delay: 0.1, duration: 0.2 }}
+                    />
+                  </motion.div>
+                )}
+
+                <Link
+                  href={item.href}
+                  data-nav-item
+                  className={cn(
+                    'relative flex items-center justify-between h-14 px-3 rounded-xl transition-all duration-300 group z-10',
+                    isActive
+                      ? 'lg:bg-transparent text-white bg-gradient-to-r from-[#2D5BFF] to-[#5C7FFF] lg:from-transparent lg:to-transparent shadow-lg lg:shadow-none shadow-[#2D5BFF]/30'
+                      : 'text-gray-600 hover:bg-white/50 hover:backdrop-blur-md hover:text-gray-900'
+                  )}
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    setActiveIndex(index);
+                  }}
+                >
+                  <motion.div 
+                    className="flex items-center space-x-3"
+                    animate={isActive ? { x: 4 } : { x: 0 }}
+                    transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                  >
+                    <motion.div
+                      animate={isActive ? { scale: 1.1 } : { scale: 1 }}
+                      transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+                      className={cn(
+                        'transition-colors duration-300',
+                        isActive 
+                          ? 'lg:text-[#2D5BFF] text-white' 
+                          : 'group-hover:text-[#2D5BFF]'
+                      )}
+                    >
+                      <Icon className="w-5 h-5" />
+                    </motion.div>
+                    <span className={cn(
+                      'font-medium transition-all duration-300',
+                      isActive 
+                        ? 'lg:text-[#2D5BFF] lg:font-bold text-white' 
+                        : ''
+                    )}>
+                      {item.label}
+                    </span>
+                  </motion.div>
+                  {showBadge && (
+                    <motion.span 
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      className="bg-gradient-to-r from-red-500 to-red-600 text-white text-xs px-2 py-0.5 rounded-full font-semibold shadow-lg shadow-red-500/30"
+                    >
+                      {pendingReports}
+                    </motion.span>
+                  )}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
       </nav>
 
       {/* Bottom Actions */}
       <div className="p-4 border-t border-white/20 space-y-1">
         <Link
           href="/notifications"
-          className="flex items-center justify-between px-3 py-2.5 rounded-xl text-gray-900 hover:bg-white/50 hover:backdrop-blur-md transition-all duration-200"
+          className="relative flex items-center justify-between px-3 py-2.5 rounded-xl text-gray-600 hover:bg-white/50 hover:backdrop-blur-md hover:text-gray-900 transition-all duration-200 group"
           onClick={() => setIsMobileMenuOpen(false)}
         >
           <div className="flex items-center space-x-3">
-            <Bell className="w-5 h-5" />
+            <Bell className="w-5 h-5 group-hover:scale-110 transition-transform duration-200" />
             <span>การแจ้งเตือน</span>
           </div>
           {notifications > 0 && (
-            <span className="bg-gradient-to-r from-red-500 to-red-600 text-white text-xs px-2.5 py-0.5 rounded-full font-semibold shadow-lg shadow-red-500/30">
+            <motion.span 
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              className="bg-gradient-to-r from-red-500 to-red-600 text-white text-xs px-2.5 py-0.5 rounded-full font-semibold shadow-lg shadow-red-500/30"
+            >
               {notifications}
-            </span>
+            </motion.span>
           )}
         </Link>
         <button
@@ -234,9 +339,9 @@ export function Sidebar() {
             logout();
             setIsMobileMenuOpen(false);
           }}
-          className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-red-600 hover:bg-red-50/50 hover:backdrop-blur-md transition-all duration-200"
+          className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-red-600 hover:bg-red-50/50 hover:backdrop-blur-md transition-all duration-200 group"
         >
-          <LogOut className="w-5 h-5" />
+          <LogOut className="w-5 h-5 group-hover:scale-110 transition-transform duration-200" />
           <span>ออกจากระบบ</span>
         </button>
       </div>
@@ -246,43 +351,89 @@ export function Sidebar() {
   return (
     <>
       {/* Mobile Menu Button */}
-      <button
+      <motion.button
         className="lg:hidden fixed top-4 left-4 z-50 p-2.5 bg-white/70 backdrop-blur-md rounded-xl shadow-glass border border-white/20"
         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.95 }}
       >
-        {isMobileMenuOpen ? (
-          <X className="w-6 h-6 text-gray-900" />
-        ) : (
-          <Menu className="w-6 h-6 text-gray-900" />
-        )}
-      </button>
+        <div className="relative w-6 h-6">
+          <motion.div
+            animate={isMobileMenuOpen ? { rotate: 90, opacity: 0 } : { rotate: 0, opacity: 1 }}
+            transition={{ duration: 0.2 }}
+            className="absolute inset-0"
+          >
+            <Menu className="w-6 h-6 text-gray-900" />
+          </motion.div>
+          <motion.div
+            animate={isMobileMenuOpen ? { rotate: 0, opacity: 1 } : { rotate: -90, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="absolute inset-0"
+          >
+            <X className="w-6 h-6 text-gray-900" />
+          </motion.div>
+        </div>
+      </motion.button>
 
       {/* Mobile Overlay */}
-      {isMobileMenuOpen && (
-        <div
-          className="lg:hidden fixed inset-0 bg-black/50 z-40"
-          onClick={() => setIsMobileMenuOpen(false)}
-        />
-      )}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <motion.div
+            className="lg:hidden fixed inset-0 bg-black/50 z-40"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsMobileMenuOpen(false)}
+          />
+        )}
+      </AnimatePresence>
 
-      {/* Sidebar */}
-      <aside
-        className={`fixed lg:static inset-y-0 left-0 z-50 w-64 bg-white/70 backdrop-blur-xl border-r border-white/20 flex flex-col transform transition-transform duration-200 ease-in-out shadow-glass ${
-          isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-        }`}
-      >
+      {/* Sidebar - Desktop (always visible) */}
+      <aside className="hidden lg:flex fixed lg:static inset-y-0 left-0 z-50 w-64 bg-white/70 backdrop-blur-xl border-r border-white/20 flex-col shadow-glass">
         {/* Logo */}
         <div className="p-4 border-b border-white/20">
           <Link href="/dashboard" className="flex items-center space-x-2">
-            <div className="w-10 h-10 bg-gradient-to-br from-[#2D5BFF] to-[#5C7FFF] rounded-xl flex items-center justify-center shadow-lg shadow-[#2D5BFF]/30">
+            <motion.div 
+              className="w-10 h-10 bg-gradient-to-br from-[#2D5BFF] to-[#5C7FFF] rounded-xl flex items-center justify-center shadow-lg shadow-[#2D5BFF]/30"
+              whileHover={{ scale: 1.05, rotate: 5 }}
+              whileTap={{ scale: 0.95 }}
+            >
               <ClipboardList className="w-6 h-6 text-white" />
-            </div>
+            </motion.div>
             <span className="font-bold text-xl bg-gradient-to-r from-[#2D5BFF] to-[#5C7FFF] bg-clip-text text-transparent">TaskFlow</span>
           </Link>
         </div>
-
         <NavContent />
       </aside>
+
+      {/* Sidebar - Mobile (animated) */}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <motion.aside
+            className="lg:hidden fixed inset-y-0 left-0 z-50 w-64 bg-white/70 backdrop-blur-xl border-r border-white/20 flex flex-col shadow-glass"
+            initial={{ x: '-100%', opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: '-100%', opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+          >
+            {/* Logo */}
+            <motion.div 
+              className="p-4 border-b border-white/20"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.1 }}
+            >
+              <Link href="/dashboard" className="flex items-center space-x-2">
+                <div className="w-10 h-10 bg-gradient-to-br from-[#2D5BFF] to-[#5C7FFF] rounded-xl flex items-center justify-center shadow-lg shadow-[#2D5BFF]/30">
+                  <ClipboardList className="w-6 h-6 text-white" />
+                </div>
+                <span className="font-bold text-xl bg-gradient-to-r from-[#2D5BFF] to-[#5C7FFF] bg-clip-text text-transparent">TaskFlow</span>
+              </Link>
+            </motion.div>
+            <NavContent />
+          </motion.aside>
+        )}
+      </AnimatePresence>
     </>
   );
 }

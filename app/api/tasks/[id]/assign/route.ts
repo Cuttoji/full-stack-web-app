@@ -150,7 +150,7 @@ export async function POST(
                 carId,
                 carName: car?.name || '',
                 plateNumber: car?.plateNumber || '',
-                conflictingTasks: carConflicts.map((t) => ({
+                conflictingTasks: carConflicts.map((t: typeof carConflicts[number]) => ({
                   taskId: t.id,
                   jobNumber: t.jobNumber,
                   title: t.title,

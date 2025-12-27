@@ -1,11 +1,11 @@
 'use client';
 
-import { ReactNode } from 'react';
+import { ReactNode, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Sidebar } from './Sidebar';
+import { Sidebar } from './SidebarNew';
+import { NotificationBell } from './NotificationBell';
 import { Loader2 } from 'lucide-react';
 import { useRouter, usePathname } from 'next/navigation';
-import { useEffect } from 'react';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -38,9 +38,13 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   }
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex bg-gray-50">
       <Sidebar />
-      <main className="flex-1 lg:ml-0 p-4 lg:p-8 pt-16 lg:pt-8 overflow-auto">
+      
+      {/* Fixed Notification Bell - Top Right */}
+      <NotificationBell className="fixed top-4 right-4 z-50" />
+      
+      <main className="flex-1 p-4 lg:p-8 pt-16 lg:pt-8 pb-8 overflow-auto">
         <div className="max-w-7xl mx-auto">
           {children}
         </div>

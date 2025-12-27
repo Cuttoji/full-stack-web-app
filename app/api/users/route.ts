@@ -149,7 +149,7 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json<ApiResponse<User>>({
         success: true,
-        data: userWithoutPassword as User,
+        data: userWithoutPassword as unknown as User,
         message: 'สร้างผู้ใช้สำเร็จ (Mock)',
       });
     }

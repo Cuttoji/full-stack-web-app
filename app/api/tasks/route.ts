@@ -169,7 +169,7 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json<ApiResponse<Task>>({
         success: true,
-        data: newTask as Task,
+        data: newTask as unknown as Task,
         message: 'สร้างงานสำเร็จ (Mock)',
       });
     }
