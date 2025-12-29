@@ -7,18 +7,20 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 // ==================== ENUMS ====================
 
 enum Role {
-  ADMIN
-  FINANCE
-  SALES
-  HEAD_TECH
-  LEADER
-  TECH
+  ADMIN            // ผู้บริหารสูงสุด
+  CUSTOMER_SERVICE // ฝ่ายบริการลูกค้า
+  FINANCE_LEADER   // หัวหน้าฝ่ายการเงิน
+  FINANCE          // เจ้าหน้าที่การเงิน
+  SALES_LEADER     // หัวหน้าฝ่ายขาย
+  SALES            // พนักงานขาย
+  HEAD_TECH        // หัวหน้าแผนกช่าง
+  LEADER           // หัวหน้าทีม
+  TECH             // ช่าง
 }
 
 enum TaskStatus {
@@ -43,9 +45,10 @@ enum LeaveType {
 }
 
 enum SubUnitType {
-  RENTAL      // เครื่องเช่า
-  INSTALLATION // ติดตั้ง
-  PRINTER     // ปริ้นเตอร์
+  RENTAL       // ทีมเครื่องเช่า
+  INSTALLATION // ทีมติดตั้ง
+  PRINTER      // ทีมปริ้นเตอร์
+  IT           // ทีมไอที
 }
 
 enum CarStatus {
@@ -53,6 +56,20 @@ enum CarStatus {
   IN_USE          // กำลังใช้งาน
   MAINTENANCE     // ซ่อมบำรุง
   OUT_OF_SERVICE  // ปิดการใช้งาน
+}
+
+enum LeaveApprovalStatus {
+  PENDING
+  APPROVED  
+  REJECTED
+}
+
+enum PermissionScopeType {
+  ALL
+  DEPARTMENT
+  SUBUNIT
+  TEAM
+  SELF
 }
 
 // ==================== MODELS ====================
@@ -98,20 +115,26 @@ model User {
   role          Role     @default(TECH)
   departmentId  String?
   subUnitId     String?  // สำหรับ Tech ในแผนกช่าง
+  supervisorId  String?  // ผู้บังคับบัญชาโดยตรง (สำหรับ Hierarchical Approval)
   leaveQuota    Int      @default(15) // โควตาลาประจำปี (วัน)
   leaveUsed     Int      @default(0)  // วันลาที่ใช้ไปแล้ว
   isActive      Boolean  @default(true)
+  permissions   Json?    // Custom permissions (UserPermissions)
+  permissionScope Json?  // Permission scope (PermissionScope)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   department     Department?     @relation(fields: [departmentId], references: [id])
   subUnit        SubUnit?        @relation(fields: [subUnitId], references: [id])
+  supervisor     User?           @relation("UserSupervisor", fields: [supervisorId], references: [id])
+  subordinates   User[]          @relation("UserSupervisor")
   
   // Relations
   tasksCreated   Task[]          @relation("TaskCreator")
   tasksAssigned  TaskAssignment[]
   leavesRequested Leave[]        @relation("LeaveRequester")
   leavesApproved Leave[]         @relation("LeaveApprover")
+  leaveApprovalsGiven LeaveApproval[] @relation("LeaveApprovalApprover")
   printerLogs    PrinterLog[]
   taskImages     TaskImage[]
   notifications  Notification[]
@@ -119,6 +142,7 @@ model User {
 
   @@index([departmentId])
   @@index([subUnitId])
+  @@index([supervisorId])
   @@index([role])
   @@map("users")
 }
@@ -254,27 +278,57 @@ model PrinterLog {
 
 // การลา
 model Leave {
-  id          String      @id @default(cuid())
-  userId      String
-  type        LeaveType
-  status      LeaveStatus @default(PENDING)
-  startDate   DateTime
-  endDate     DateTime
-  totalDays   Float       // จำนวนวันลา (รองรับ 0.5 วัน)
-  reason      String?     // เหตุผลการลา
-  approvedById String?    // ผู้อนุมัติ (Leader)
-  approvedAt  DateTime?
-  rejectedReason String?  // เหตุผลที่ไม่อนุมัติ
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  id              String      @id @default(cuid())
+  userId          String
+  type            LeaveType
+  status          LeaveStatus @default(PENDING)
+  startDate       DateTime
+  endDate         DateTime
+  totalDays       Float       // จำนวนวันลา (รองรับ 0.5 วัน)
+  reason          String?     // เหตุผลการลา
+  
+  // Hierarchical Approval
+  currentApproverId String?   // ผู้ที่ต้องอนุมัติปัจจุบัน
+  approvalLevel   Int         @default(1) // ระดับการอนุมัติปัจจุบัน
+  
+  // Legacy fields (for backward compatibility)
+  approvedById    String?     // ผู้อนุมัติสุดท้าย
+  approvedAt      DateTime?
+  rejectedReason  String?     // เหตุผลที่ไม่อนุมัติ
+  approverNote    String?     // หมายเหตุจากผู้อนุมัติ
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
 
-  user       User  @relation("LeaveRequester", fields: [userId], references: [id], onDelete: Cascade)
-  approvedBy User? @relation("LeaveApprover", fields: [approvedById], references: [id])
+  user            User        @relation("LeaveRequester", fields: [userId], references: [id], onDelete: Cascade)
+  approvedBy      User?       @relation("LeaveApprover", fields: [approvedById], references: [id])
+  approvalChain   LeaveApproval[]
 
   @@index([userId])
   @@index([status])
+  @@index([currentApproverId])
   @@index([startDate, endDate])
   @@map("leaves")
+}
+
+// ประวัติการอนุมัติตามลำดับชั้น
+model LeaveApproval {
+  id            String              @id @default(cuid())
+  leaveId       String
+  approverId    String
+  approverRole  Role
+  level         Int                 // ลำดับการอนุมัติ (1, 2, 3...)
+  status        LeaveApprovalStatus @default(PENDING)
+  comment       String?
+  actionAt      DateTime?
+  createdAt     DateTime            @default(now())
+
+  leave    Leave @relation(fields: [leaveId], references: [id], onDelete: Cascade)
+  approver User  @relation("LeaveApprovalApprover", fields: [approverId], references: [id])
+
+  @@index([leaveId])
+  @@index([approverId])
+  @@map("leave_approvals")
 }
 
 // การแจ้งเตือน

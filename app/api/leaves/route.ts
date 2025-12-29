@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken, getTokenFromHeader } from '@/lib/auth';
-import { ApiResponse, CreateLeaveRequest, Leave, LeaveStatus, PaginatedResponse } from '@/lib/types';
+import { verifyToken, getTokenFromHeader, canApproveLeaveFor } from '@/lib/auth';
+import { ApiResponse, CreateLeaveRequest, Leave, LeaveStatus, PaginatedResponse, Role, DefaultRoleScope, LeaveApprovalChain } from '@/lib/types';
 import { USE_MOCK_DB } from '@/lib/mockDb';
 import { mockLeaves, mockUsers } from '@/lib/mockData';
 
@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '20');
     const status = searchParams.get('status') as LeaveStatus | null;
     const userId = searchParams.get('userId');
+    const pendingApproval = searchParams.get('pendingApproval') === 'true';
 
     if (USE_MOCK_DB) {
       let filteredLeaves = [...mockLeaves];
@@ -34,13 +35,44 @@ export async function GET(request: NextRequest) {
         filteredLeaves = filteredLeaves.filter(l => l.userId === userId);
       }
 
-      // Role-based filtering
-      if (currentUser.role === 'TECH') {
+      // Permission Scope-based filtering
+      const userScope = DefaultRoleScope[currentUser.role as Role];
+      
+      if (userScope.type === 'SELF') {
+        // TECH, FINANCE, SALES - เห็นแค่ของตัวเอง
         filteredLeaves = filteredLeaves.filter(l => l.userId === currentUser.id);
-      } else if (currentUser.role === 'LEADER' && currentUser.subUnitId) {
+      } else if (userScope.type === 'SUBUNIT') {
+        // LEADER - เห็นของทีมตัวเอง
         filteredLeaves = filteredLeaves.filter(l => {
           const user = mockUsers.find(u => u.id === l.userId);
-          return user?.subUnitId === currentUser.subUnitId;
+          return user?.subUnitId === currentUser.subUnitId || l.userId === currentUser.id;
+        });
+      } else if (userScope.type === 'DEPARTMENT') {
+        // HEAD_TECH, FINANCE_LEADER, SALES_LEADER - เห็นของแผนกตัวเอง
+        filteredLeaves = filteredLeaves.filter(l => {
+          const user = mockUsers.find(u => u.id === l.userId);
+          return user?.departmentId === currentUser.departmentId || l.userId === currentUser.id;
+        });
+      }
+      // ALL scope (ADMIN, CUSTOMER_SERVICE) - เห็นทั้งหมด
+
+      // Filter pending approval - แสดงเฉพาะที่รอการอนุมัติจากผู้ใช้ปัจจุบัน
+      if (pendingApproval) {
+        filteredLeaves = filteredLeaves.filter(l => {
+          if (l.status !== 'PENDING') return false;
+          const leaveUser = mockUsers.find(u => u.id === l.userId) as (typeof mockUsers[0] & { supervisorId?: string }) | undefined;
+          if (!leaveUser) return false;
+          
+          // ตรวจสอบว่าเป็น supervisor โดยตรงหรือไม่
+          if (leaveUser.supervisorId === currentUser.id) return true;
+          
+          // ตรวจสอบจาก LeaveApprovalChain
+          return canApproveLeaveFor(
+            currentUser.role as Role,
+            currentUser.id,
+            leaveUser.role as Role,
+            leaveUser.supervisorId
+          );
         });
       }
 
@@ -109,6 +141,20 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      // หาผู้อนุมัติคนแรกจาก supervisorId หรือ LeaveApprovalChain
+      let currentApproverId: string | null = null;
+      const userWithSupervisor = user as (typeof user & { supervisorId?: string }) | undefined;
+      if (userWithSupervisor?.supervisorId) {
+        currentApproverId = userWithSupervisor.supervisorId;
+      } else {
+        // หาจาก LeaveApprovalChain
+        const approverRoles = LeaveApprovalChain[currentUser.role as Role];
+        if (approverRoles && approverRoles.length > 0) {
+          const approver = mockUsers.find(u => approverRoles.includes(u.role as Role));
+          currentApproverId = approver?.id || null;
+        }
+      }
+
       const newLeave = {
         id: `leave-${Date.now()}`,
         userId: currentUser.id,
@@ -119,6 +165,9 @@ export async function POST(request: NextRequest) {
         endDate: new Date(endDate),
         totalDays,
         reason: reason || '',
+        currentApproverId,
+        approvalChain: [],
+        approvalLevel: 1,
         approvedById: null,
         approver: null,
         approverNote: null,
@@ -130,7 +179,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json<ApiResponse<Leave>>({
         success: true,
         data: newLeave as unknown as Leave,
-        message: 'ส่งคำขอลาสำเร็จ (Mock)',
+        message: 'ส่งคำขอลาสำเร็จ',
       });
     }
 

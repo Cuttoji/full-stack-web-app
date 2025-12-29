@@ -1,6 +1,15 @@
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
-import { AuthUser, Role } from './types';
+import { 
+  AuthUser, 
+  Role, 
+  UserPermissions, 
+  PermissionScope, 
+  DefaultRolePermissions, 
+  DefaultRoleScope, 
+  RoleHierarchy,
+  LeaveApprovalChain 
+} from './types';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 const JWT_EXPIRES_IN = '7d';
@@ -44,94 +53,117 @@ export function getTokenFromHeader(authHeader: string | null): string | null {
   return authHeader.substring(7);
 }
 
-// Role-based access control helpers
-export const RolePermissions = {
-  [Role.ADMIN]: {
-    canManageUsers: true,
-    canManageDepartments: true,
-    canManageSettings: true,
-    canCreateTasks: true,
-    canAssignTasks: true,
-    canViewAllTasks: true,
-    canManageCars: true,
-    canApproveLeaves: true,
-    canViewReports: true,
-  },
-  [Role.FINANCE]: {
-    canManageUsers: false,
-    canManageDepartments: false,
-    canManageSettings: false,
-    canCreateTasks: true,
-    canAssignTasks: false,
-    canViewAllTasks: true,
-    canManageCars: false,
-    canApproveLeaves: false,
-    canViewReports: true,
-  },
-  [Role.SALES]: {
-    canManageUsers: false,
-    canManageDepartments: false,
-    canManageSettings: false,
-    canCreateTasks: false, // Can create briefs
-    canAssignTasks: false,
-    canViewAllTasks: false, // Only view own customer tasks
-    canManageCars: false,
-    canApproveLeaves: false,
-    canViewReports: false,
-  },
-  [Role.HEAD_TECH]: {
-    canManageUsers: false,
-    canManageDepartments: false,
-    canManageSettings: false,
-    canCreateTasks: false,
-    canAssignTasks: true,
-    canViewAllTasks: true,
-    canManageCars: true,
-    canApproveLeaves: false,
-    canViewReports: true,
-  },
-  [Role.LEADER]: {
-    canManageUsers: false,
-    canManageDepartments: false,
-    canManageSettings: false,
-    canCreateTasks: false,
-    canAssignTasks: false,
-    canViewAllTasks: false, // Only view sub-unit tasks
-    canManageCars: false,
-    canApproveLeaves: true, // Only for sub-unit members
-    canViewReports: true, // Only sub-unit reports
-  },
-  [Role.TECH]: {
-    canManageUsers: false,
-    canManageDepartments: false,
-    canManageSettings: false,
-    canCreateTasks: false,
-    canAssignTasks: false,
-    canViewAllTasks: false, // Only view assigned tasks
-    canManageCars: false,
-    canApproveLeaves: false,
-    canViewReports: false,
-  },
-};
+// ==================== PERMISSION HELPERS ====================
 
-export function hasPermission(role: Role, permission: keyof typeof RolePermissions[Role.ADMIN]): boolean {
-  return RolePermissions[role]?.[permission] ?? false;
+// ตรวจสอบว่า user มี permission หรือไม่
+export function hasPermission(
+  role: Role, 
+  permission: keyof UserPermissions,
+  userPermissions?: UserPermissions
+): boolean {
+  // ถ้ามี custom permissions ให้ใช้ก่อน
+  if (userPermissions && userPermissions[permission] !== undefined) {
+    return userPermissions[permission] ?? false;
+  }
+  // ใช้ default permissions ตาม role
+  return DefaultRolePermissions[role]?.[permission] ?? false;
 }
+
+// ตรวจสอบว่า user สามารถเข้าถึง resource ตาม scope หรือไม่
+export function canAccessWithScope(
+  userRole: Role,
+  userScope: PermissionScope | undefined,
+  resourceDepartmentId?: string,
+  resourceSubUnitId?: string,
+  resourceUserId?: string,
+  currentUserId?: string
+): boolean {
+  const scope = userScope || DefaultRoleScope[userRole];
+  
+  switch (scope.type) {
+    case 'ALL':
+      return true;
+    
+    case 'DEPARTMENT':
+      if (scope.departmentIds && scope.departmentIds.length > 0) {
+        return resourceDepartmentId ? scope.departmentIds.includes(resourceDepartmentId) : false;
+      }
+      return true; // ถ้าไม่ได้กำหนด departmentIds = ทุก department ที่ตัวเองอยู่
+    
+    case 'SUBUNIT':
+      if (scope.subUnitIds && scope.subUnitIds.length > 0) {
+        return resourceSubUnitId ? scope.subUnitIds.includes(resourceSubUnitId) : false;
+      }
+      return true;
+    
+    case 'TEAM':
+      if (scope.userIds && scope.userIds.length > 0) {
+        return resourceUserId ? scope.userIds.includes(resourceUserId) : false;
+      }
+      return false;
+    
+    case 'SELF':
+      return resourceUserId === currentUserId;
+    
+    default:
+      return false;
+  }
+}
+
+// ==================== HIERARCHICAL APPROVAL HELPERS ====================
+
+// ตรวจสอบว่า approver สามารถอนุมัติใบลาของ user ได้หรือไม่
+export function canApproveLeaveFor(
+  approverRole: Role,
+  approverId: string,
+  targetUserRole: Role,
+  targetUserSupervisorId?: string
+): boolean {
+  // 1. ตรวจสอบว่าเป็น supervisor โดยตรงหรือไม่
+  if (targetUserSupervisorId === approverId) {
+    return true;
+  }
+  
+  // 2. ตรวจสอบจาก LeaveApprovalChain
+  const allowedApprovers = LeaveApprovalChain[targetUserRole];
+  if (allowedApprovers && allowedApprovers.includes(approverRole)) {
+    return true;
+  }
+  
+  // 3. ADMIN สามารถอนุมัติได้ทุกคน
+  if (approverRole === Role.ADMIN) {
+    return true;
+  }
+  
+  return false;
+}
+
+// หาผู้อนุมัติถัดไปในลำดับชั้น
+export function getNextApprover(userRole: Role): Role[] {
+  return LeaveApprovalChain[userRole] || [];
+}
+
+// ตรวจสอบว่า role มีลำดับชั้นสูงกว่าหรือไม่
+export function isHigherInHierarchy(role1: Role, role2: Role): boolean {
+  return RoleHierarchy[role1] > RoleHierarchy[role2];
+}
+
+// ==================== ROUTE ACCESS CONTROL ====================
 
 export function canAccessRoute(role: Role, route: string): boolean {
   const routePermissions: Record<string, Role[]> = {
     '/admin': [Role.ADMIN],
     '/dashboard/admin': [Role.ADMIN],
-    '/dashboard/finance': [Role.ADMIN, Role.FINANCE],
-    '/dashboard/sales': [Role.ADMIN, Role.SALES],
+    '/dashboard/finance': [Role.ADMIN, Role.FINANCE_LEADER, Role.FINANCE],
+    '/dashboard/sales': [Role.ADMIN, Role.SALES_LEADER, Role.SALES],
     '/dashboard/head-tech': [Role.ADMIN, Role.HEAD_TECH],
     '/dashboard/leader': [Role.ADMIN, Role.LEADER],
     '/dashboard/tech': [Role.ADMIN, Role.TECH],
-    '/tasks': [Role.ADMIN, Role.FINANCE, Role.HEAD_TECH, Role.LEADER, Role.TECH],
-    '/leaves': [Role.ADMIN, Role.LEADER, Role.TECH],
-    '/cars': [Role.ADMIN, Role.HEAD_TECH],
-    '/users': [Role.ADMIN],
-    '/reports': [Role.ADMIN, Role.FINANCE, Role.HEAD_TECH, Role.LEADER],
+    '/tasks': [Role.ADMIN, Role.CUSTOMER_SERVICE, Role.FINANCE_LEADER, Role.FINANCE, Role.SALES_LEADER, Role.SALES, Role.HEAD_TECH, Role.LEADER, Role.TECH],
+    '/leaves': [Role.ADMIN, Role.CUSTOMER_SERVICE, Role.FINANCE_LEADER, Role.FINANCE, Role.SALES_LEADER, Role.SALES, Role.HEAD_TECH, Role.LEADER, Role.TECH],
+    '/cars': [Role.ADMIN, Role.HEAD_TECH, Role.LEADER],
+    '/users': [Role.ADMIN, Role.FINANCE_LEADER, Role.SALES_LEADER, Role.HEAD_TECH],
+    '/reports': [Role.ADMIN, Role.CUSTOMER_SERVICE, Role.FINANCE_LEADER, Role.FINANCE, Role.SALES_LEADER, Role.HEAD_TECH, Role.LEADER],
   };
 
   const allowedRoles = routePermissions[route];

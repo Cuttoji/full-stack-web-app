@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { verifyToken, getTokenFromHeader, hasPermission } from '@/lib/auth';
-import { ApiResponse, ApproveLeaveRequest, Leave, Role } from '@/lib/types';
+import { verifyToken, getTokenFromHeader, hasPermission, canApproveLeaveFor } from '@/lib/auth';
+import { ApiResponse, ApproveLeaveRequest, Leave, Role, LeaveApprovalChain } from '@/lib/types';
 
 // GET /api/leaves/[id] - Get leave by ID
 export async function GET(
@@ -81,7 +81,7 @@ export async function PATCH(
       );
     }
 
-    if (!hasPermission(currentUser.role as Role, 'canApproveLeaves')) {
+    if (!hasPermission(currentUser.role as Role, 'canApproveLeave')) {
       return NextResponse.json<ApiResponse>(
         { success: false, error: 'คุณไม่มีสิทธิ์ในการอนุมัติการลา' },
         { status: 403 }
@@ -105,14 +105,19 @@ export async function PATCH(
       );
     }
 
-    // Check if leader can approve this leave (same sub-unit)
-    if (currentUser.role === 'LEADER') {
-      if (leave.user.subUnitId !== currentUser.subUnitId) {
-        return NextResponse.json<ApiResponse>(
-          { success: false, error: 'คุณไม่มีสิทธิ์อนุมัติการลานี้' },
-          { status: 403 }
-        );
-      }
+    // Hierarchical Approval Check
+    const canApprove = canApproveLeaveFor(
+      currentUser.role as Role,
+      currentUser.id,
+      leave.user.role as Role,
+      (leave.user as any).supervisorId
+    );
+
+    if (!canApprove) {
+      return NextResponse.json<ApiResponse>(
+        { success: false, error: 'คุณไม่มีสิทธิ์อนุมัติการลานี้ตามลำดับชั้นองค์กร' },
+        { status: 403 }
+      );
     }
 
     if (leave.status !== 'PENDING') {
