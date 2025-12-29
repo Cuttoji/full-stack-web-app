@@ -321,7 +321,7 @@ export default function TaskDetailPage() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6 text-gray-800">
+      <div className="space-y-6 text-gray-800 mt-8">
         {/* Header */}
         <div className="flex items-center gap-4">
           <Link href="/tasks">

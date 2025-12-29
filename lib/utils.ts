@@ -42,7 +42,7 @@ export function isDateInRange(date: Date, startDate: Date, endDate: Date): boole
   return isWithinInterval(date, { start: startDate, end: endDate });
 }
 
-// Generate dates for loop tasks
+// Generate dates for loop tasks (skipping Sunday)
 export function generateLoopDates(
   startDate: Date,
   endDate: Date,
@@ -54,12 +54,20 @@ export function generateLoopDates(
   let currentEnd = endDate;
 
   while (currentStart <= loopEndDate) {
-    dates.push({ start: currentStart, end: currentEnd });
+    // Skip Sunday (day 0)
+    if (currentStart.getDay() !== 0) {
+      dates.push({ start: currentStart, end: currentEnd });
+    }
 
     switch (loopPattern) {
       case 'daily':
         currentStart = addDays(currentStart, 1);
         currentEnd = addDays(currentEnd, 1);
+        // If next day is Sunday, skip to Monday
+        if (currentStart.getDay() === 0) {
+          currentStart = addDays(currentStart, 1);
+          currentEnd = addDays(currentEnd, 1);
+        }
         break;
       case 'weekly':
         currentStart = addWeeks(currentStart, 1);
@@ -68,6 +76,11 @@ export function generateLoopDates(
       case 'monthly':
         currentStart = addMonths(currentStart, 1);
         currentEnd = addMonths(currentEnd, 1);
+        // If monthly date falls on Sunday, move to Monday
+        if (currentStart.getDay() === 0) {
+          currentStart = addDays(currentStart, 1);
+          currentEnd = addDays(currentEnd, 1);
+        }
         break;
     }
   }

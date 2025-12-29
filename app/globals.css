@@ -6,6 +6,9 @@
   --royal-blue: #2D5BFF;
   --royal-blue-dark: #1E3FCC;
   --royal-blue-light: #5C7FFF;
+  --sky-light: #87CEEB;
+  --sky-medium: #6BB3D9;
+  --sky-dark: #4A90B8;
 }
 
 @theme inline {
@@ -23,25 +26,176 @@
 }
 
 body {
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  background: linear-gradient(180deg, #87CEEB 0%, #B0E2FF 40%, #E0F4FF 100%);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
   min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Cloud animations */
+@keyframes float-cloud {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100vw);
+  }
+}
+
+@keyframes float-cloud-reverse {
+  0% {
+    transform: translateX(100vw);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+.cloud {
+  position: fixed;
+  background: white;
+  border-radius: 100px;
+  opacity: 0.9;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.cloud::before,
+.cloud::after {
+  content: '';
+  position: absolute;
+  background: white;
+  border-radius: 50%;
+}
+
+.cloud-1 {
+  width: 200px;
+  height: 60px;
+  top: 5%;
+  animation: float-cloud 60s linear infinite;
+}
+
+.cloud-1::before {
+  width: 100px;
+  height: 80px;
+  top: -50px;
+  left: 20px;
+}
+
+.cloud-1::after {
+  width: 120px;
+  height: 90px;
+  top: -60px;
+  right: 20px;
+}
+
+.cloud-2 {
+  width: 150px;
+  height: 45px;
+  top: 15%;
+  animation: float-cloud-reverse 80s linear infinite;
+  opacity: 0.7;
+}
+
+.cloud-2::before {
+  width: 70px;
+  height: 55px;
+  top: -35px;
+  left: 15px;
+}
+
+.cloud-2::after {
+  width: 90px;
+  height: 65px;
+  top: -45px;
+  right: 15px;
+}
+
+.cloud-3 {
+  width: 180px;
+  height: 50px;
+  top: 25%;
+  animation: float-cloud 90s linear infinite;
+  animation-delay: -30s;
+  opacity: 0.6;
+}
+
+.cloud-3::before {
+  width: 85px;
+  height: 70px;
+  top: -45px;
+  left: 20px;
+}
+
+.cloud-3::after {
+  width: 100px;
+  height: 75px;
+  top: -50px;
+  right: 25px;
+}
+
+.cloud-4 {
+  width: 120px;
+  height: 35px;
+  top: 8%;
+  animation: float-cloud 70s linear infinite;
+  animation-delay: -45s;
+  opacity: 0.8;
+}
+
+.cloud-4::before {
+  width: 55px;
+  height: 45px;
+  top: -28px;
+  left: 12px;
+}
+
+.cloud-4::after {
+  width: 70px;
+  height: 50px;
+  top: -32px;
+  right: 10px;
+}
+
+.cloud-5 {
+  width: 160px;
+  height: 48px;
+  top: 35%;
+  animation: float-cloud-reverse 100s linear infinite;
+  animation-delay: -20s;
+  opacity: 0.5;
+}
+
+.cloud-5::before {
+  width: 75px;
+  height: 60px;
+  top: -38px;
+  left: 18px;
+}
+
+.cloud-5::after {
+  width: 95px;
+  height: 70px;
+  top: -45px;
+  right: 18px;
 }
 
 /* Glassmorphism utilities */
 .glass {
-  background: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 8px 32px rgba(135, 206, 235, 0.2);
 }
 
 .glass-hover:hover {
-  background: rgba(255, 255, 255, 0.7);
-  box-shadow: 0 8px 32px 0 rgba(45, 91, 255, 0.15);
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 8px 32px 0 rgba(135, 206, 235, 0.3);
 }
 
 .shadow-glass {
-  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
+  box-shadow: 0 8px 32px 0 rgba(135, 206, 235, 0.15);
 }

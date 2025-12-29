@@ -97,6 +97,10 @@ export interface UserPermissions {
   canManageFleet?: boolean;
   canCreateTasks?: boolean;
   canAssignTasks?: boolean;
+  canApproveLeave?: boolean;
+  canManageUsers?: boolean;
+  canManageTasks?: boolean;
+  canManageDailyTechnician?: boolean;
 }
 
 export interface Car {
@@ -141,6 +145,7 @@ export interface Task {
   notes?: string;
   priority: number;
   completedAt?: Date;
+  deletedAt?: Date | null; // Soft delete - ถังขยะ 30 วัน
   createdAt: Date;
   updatedAt: Date;
   subUnit?: SubUnit;

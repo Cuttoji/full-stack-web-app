@@ -109,7 +109,7 @@ export async function PATCH(
   }
 }
 
-// DELETE /api/tasks/[id] - Delete task
+// DELETE /api/tasks/[id] - Soft delete task (move to trash)
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -127,6 +127,9 @@ export async function DELETE(
       );
     }
 
+    const { searchParams } = new URL(request.url);
+    const permanent = searchParams.get('permanent') === 'true';
+
     if (USE_MOCK_DB) {
       const taskIndex = mockTasks.findIndex(t => t.id === id);
       
@@ -137,10 +140,26 @@ export async function DELETE(
         );
       }
 
-      return NextResponse.json<ApiResponse>({
-        success: true,
-        message: 'ลบงานสำเร็จ (Mock)',
-      });
+      if (permanent) {
+        // Permanent delete
+        return NextResponse.json<ApiResponse>({
+          success: true,
+          message: 'ลบงานถาวรสำเร็จ',
+        });
+      } else {
+        // Soft delete - move to trash
+        const deletedTask = {
+          ...mockTasks[taskIndex],
+          deletedAt: new Date(),
+          updatedAt: new Date(),
+        };
+
+        return NextResponse.json<ApiResponse<Task>>({
+          success: true,
+          data: deletedTask as Task,
+          message: 'ย้ายงานไปถังขยะสำเร็จ',
+        });
+      }
     }
 
     return NextResponse.json<ApiResponse>(

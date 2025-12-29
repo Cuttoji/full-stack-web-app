@@ -63,7 +63,7 @@ export default function DashboardPage() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6 text-gray-800">
+      <div className="space-y-6 text-gray-800 mt-8">
         {/* Header */}
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
@@ -149,42 +149,35 @@ export default function DashboardPage() {
         )}
 
         {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Recent Tasks */}
-          <div className="lg:col-span-2">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 ">
+          {/* Important Announcements */}
+          <div className="lg:col-span-2 ">
             <Card>
               <CardHeader
-                title="งานล่าสุด"
+                title="ประกาศสำคัญ"
                 action={
                   <Link
-                    href="/tasks"
-                    className="text-sm text-blue-600 hover:text-blue-700"
+                    href="/notifications"
+                    className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
                   >
                     ดูทั้งหมด →
                   </Link>
                 }
               />
-              {isLoading ? (
-                <div className="space-y-3">
-                  {[1, 2, 3].map((i) => (
-                    <div
-                      key={i}
-                      className="h-24 bg-gray-100 rounded-lg animate-pulse"
-                    />
-                  ))}
+              <div className="space-y-3">
+                <div className="p-4 bg-blue-50 border-l-4 border-blue-500 rounded-r-lg">
+                  <h4 className="font-semibold text-blue-800">📢 ประชุมประจำเดือน</h4>
+                  <p className="text-sm text-blue-700 mt-1">วันที่ 2 มกราคม 2568 เวลา 09:00 น. ห้องประชุมใหญ่</p>
                 </div>
-              ) : recentTasks.length > 0 ? (
-                <div className="space-y-3">
-                  {recentTasks.map((task) => (
-                    <TaskCard key={task.id} task={task} compact />
-                  ))}
+                <div className="p-4 bg-yellow-50 border-l-4 border-yellow-500 rounded-r-lg">
+                  <h4 className="font-semibold text-yellow-800">⚠️ ปิดปรับปรุงระบบ</h4>
+                  <p className="text-sm text-yellow-700 mt-1">วันที่ 31 ธันวาคม 2567 เวลา 22:00 - 06:00 น.</p>
                 </div>
-              ) : (
-                <div className="text-center py-8 text-gray-900">
-                  <ClipboardList className="w-12 h-12 mx-auto mb-2 text-gray-900" />
-                  <p>ไม่มีงาน</p>
+                <div className="p-4 bg-green-50 border-l-4 border-green-500 rounded-r-lg">
+                  <h4 className="font-semibold text-green-800">🎉 วันหยุดปีใหม่</h4>
+                  <p className="text-sm text-green-700 mt-1">วันที่ 1-3 มกราคม 2568 หยุดราชการ</p>
                 </div>
-              )}
+              </div>
             </Card>
           </div>
 
@@ -210,15 +203,13 @@ export default function DashboardPage() {
                   <Calendar className="w-5 h-5 mr-3" />
                   <span className="font-medium">ดูปฏิทิน</span>
                 </Link>
-                {(isLeader || isTech) && (
-                  <Link
-                    href="/leaves/new"
-                    className="flex items-center p-3 bg-purple-50 rounded-lg text-purple-700 hover:bg-purple-100 transition-colors"
-                  >
-                    <Clock className="w-5 h-5 mr-3" />
-                    <span className="font-medium">ขอลา</span>
-                  </Link>
-                )}
+                <Link
+                  href="/leaves"
+                  className="flex items-center p-3 bg-purple-50 rounded-lg text-purple-700 hover:bg-purple-100 transition-colors"
+                >
+                  <Clock className="w-5 h-5 mr-3" />
+                  <span className="font-medium">ลางาน</span>
+                </Link>
                 {(isAdmin || isHeadTech) && (
                   <Link
                     href="/cars"

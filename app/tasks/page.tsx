@@ -7,14 +7,13 @@ import { Button, Card } from '@/components/ui';
 import { TaskCard } from '@/components/tasks/TaskCard';
 import { CreateTaskForm } from '@/components/tasks/CreateTaskForm';
 import { Task, SubUnit, User, Car, CreateTaskRequest } from '@/lib/types';
-import { Plus, Search, Filter, Grid, List, Calendar } from 'lucide-react';
+import { Plus, Search, Filter, Calendar, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 
 export default function TasksPage() {
   const { isAdmin, isFinance } = useRoleAccess();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   // Filter states
@@ -111,11 +110,63 @@ export default function TasksPage() {
     fetchTasks();
   };
 
+  // Cancel task
+  const handleCancelTask = async (taskId: string) => {
+    if (!confirm('คุณแน่ใจหรือไม่ที่จะยกเลิกงานนี้?')) return;
+    
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    try {
+      const response = await fetch(`/api/tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ status: 'CANCELLED' }),
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        fetchTasks();
+        alert('ยกเลิกงานสำเร็จ');
+      }
+    } catch (error) {
+      console.error('Failed to cancel task:', error);
+    }
+  };
+
+  // Delete task (move to trash)
+  const handleDeleteTask = async (taskId: string) => {
+    if (!confirm('คุณแน่ใจหรือไม่ที่จะลบงานนี้? งานจะถูกย้ายไปถังขยะและเก็บไว้ 30 วัน')) return;
+    
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    try {
+      const response = await fetch(`/api/tasks/${taskId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        fetchTasks();
+        alert('ย้ายงานไปถังขยะสำเร็จ');
+      }
+    } catch (error) {
+      console.error('Failed to delete task:', error);
+    }
+  };
+
   const canCreateTask = isAdmin || isFinance;
 
   return (
     <DashboardLayout>
-      <div className="space-y-6 text-gray-800">
+      <div className="space-y-6 text-gray-800 mt-8">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -123,6 +174,11 @@ export default function TasksPage() {
             <p className="text-gray-900">ดูและจัดการงานทั้งหมด</p>
           </div>
           <div className="flex items-center gap-3">
+            <Link href="/tasks/trash">
+              <Button variant="outline" leftIcon={<Trash2 className="w-4 h-4" />}>
+                ถังขยะ
+              </Button>
+            </Link>
             <Link href="/calendar">
               <Button variant="outline" leftIcon={<Calendar className="w-4 h-4" />}>
                 ปฏิทิน
@@ -180,36 +236,28 @@ export default function TasksPage() {
                   </option>
                 ))}
               </select>
-
-              <div className="flex border border-gray-300 rounded-lg overflow-hidden">
-                <button
-                  onClick={() => setViewMode('grid')}
-                  className={`p-2 ${viewMode === 'grid' ? 'bg-blue-50 text-blue-600' : 'text-gray-900'}`}
-                >
-                  <Grid className="w-5 h-5" />
-                </button>
-                <button
-                  onClick={() => setViewMode('list')}
-                  className={`p-2 ${viewMode === 'list' ? 'bg-blue-50 text-blue-600' : 'text-gray-900'}`}
-                >
-                  <List className="w-5 h-5" />
-                </button>
-              </div>
             </div>
           </div>
         </Card>
 
         {/* Tasks List */}
         {isLoading ? (
-          <div className={`grid gap-4 ${viewMode === 'grid' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'}`}>
+          <div className="grid gap-4 grid-cols-1">
             {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div key={i} className="h-48 bg-gray-100 rounded-lg animate-pulse" />
+              <div key={i} className="h-24 bg-gray-100 rounded-lg animate-pulse" />
             ))}
           </div>
         ) : tasks.length > 0 ? (
-          <div className={`grid gap-4 ${viewMode === 'grid' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'}`}>
+          <div className="grid gap-4 grid-cols-1">
             {tasks.map((task) => (
-              <TaskCard key={task.id} task={task} compact={viewMode === 'list'} />
+              <TaskCard 
+                key={task.id} 
+                task={task} 
+                compact={true}
+                onCancel={handleCancelTask}
+                onDelete={handleDeleteTask}
+                showActions={canCreateTask}
+              />
             ))}
           </div>
         ) : (

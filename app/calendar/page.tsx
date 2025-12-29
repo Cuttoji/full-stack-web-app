@@ -230,8 +230,8 @@ export default function CalendarPage() {
       });
     }
 
-    // Next month days
-    const remainingDays = 42 - days.length;
+    // Next month days (5 weeks = 35 days total)
+    const remainingDays = 35 - days.length;
     for (let date = 1; date <= remainingDays; date++) {
       const dateString = `${year}-${String(month + 2).padStart(2, '0')}-${String(date).padStart(2, '0')}`;
       days.push({
@@ -305,7 +305,7 @@ export default function CalendarPage() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6 text-gray-800">
+      <div className="space-y-6 text-gray-800 mt-8">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>

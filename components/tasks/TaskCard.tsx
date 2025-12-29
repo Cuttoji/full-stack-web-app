@@ -1,9 +1,10 @@
 'use client';
 
+import { useState } from 'react';
 import { Task, TaskStatus, TaskStatusColors } from '@/lib/types';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { formatDate, formatDateRange } from '@/lib/utils';
-import { Calendar, MapPin, User, Car, Clock } from 'lucide-react';
+import { formatDateRange } from '@/lib/utils';
+import { Calendar, MapPin, User, Car, MoreVertical, XCircle, Trash2, RotateCcw } from 'lucide-react';
 import Link from 'next/link';
 
 interface TaskCardProps {
@@ -11,23 +12,133 @@ interface TaskCardProps {
   onClick?: () => void;
   showAssignees?: boolean;
   compact?: boolean;
+  onCancel?: (taskId: string) => void;
+  onDelete?: (taskId: string) => void;
+  onRestore?: (taskId: string) => void;
+  showActions?: boolean;
+  isTrashView?: boolean;
 }
 
-export function TaskCard({ task, onClick, showAssignees = true, compact = false }: TaskCardProps) {
-  const CardContent = () => (
+export function TaskCard({ 
+  task, 
+  onClick, 
+  showAssignees = true, 
+  compact = false,
+  onCancel,
+  onDelete,
+  onRestore,
+  showActions = true,
+  isTrashView = false,
+}: TaskCardProps) {
+  const [showMenu, setShowMenu] = useState(false);
+
+  const handleCancel = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (onCancel) {
+      onCancel(task.id);
+    }
+    setShowMenu(false);
+  };
+
+  const handleDelete = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (onDelete) {
+      onDelete(task.id);
+    }
+    setShowMenu(false);
+  };
+
+  const handleRestore = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (onRestore) {
+      onRestore(task.id);
+    }
+    setShowMenu(false);
+  };
+
+  const cardContent = (
     <div
       className={`
         bg-white/60 backdrop-blur-md rounded-2xl border border-white/20 shadow-glass
         hover:shadow-xl hover:bg-white/70 transition-all duration-300 cursor-pointer
         ${compact ? 'p-3' : 'p-5'}
+        ${task.deletedAt ? 'opacity-60' : ''}
+        relative
       `}
       onClick={onClick}
     >
+      {/* Action Menu Button */}
+      {showActions && !onClick && (
+        <div className="absolute top-3 right-3 z-10">
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setShowMenu(!showMenu);
+            }}
+            className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <MoreVertical className="w-4 h-4 text-gray-500" />
+          </button>
+
+          {/* Dropdown Menu */}
+          {showMenu && (
+            <div className="absolute right-0 top-8 bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[140px] z-20">
+              {isTrashView ? (
+                <>
+                  <button
+                    onClick={handleRestore}
+                    className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 text-green-600"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    กู้คืน
+                  </button>
+                  <button
+                    onClick={handleDelete}
+                    className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 text-red-600"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    ลบถาวร
+                  </button>
+                </>
+              ) : (
+                <>
+                  {task.status !== 'CANCELLED' && task.status !== 'DONE' && (
+                    <button
+                      onClick={handleCancel}
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 text-amber-600"
+                    >
+                      <XCircle className="w-4 h-4" />
+                      ยกเลิกงาน
+                    </button>
+                  )}
+                  <button
+                    onClick={handleDelete}
+                    className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 text-red-600"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    ลบงาน
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Header */}
-      <div className="flex items-start justify-between mb-2">
+      <div className="flex items-start justify-between mb-2 pr-8">
         <div className="flex-1 min-w-0">
           <div className="flex items-center space-x-2 mb-1">
             <span className="text-xs text-gray-900 font-mono">{task.jobNumber}</span>
+            {task.deletedAt && (
+              <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full">
+                ในถังขยะ
+              </span>
+            )}
           </div>
           <h4 className={`font-medium text-gray-900 truncate ${compact ? 'text-sm' : ''}`}>
             {task.title}
@@ -98,12 +209,12 @@ export function TaskCard({ task, onClick, showAssignees = true, compact = false 
   );
 
   if (onClick) {
-    return <CardContent />;
+    return cardContent;
   }
 
   return (
     <Link href={`/tasks/${task.id}`}>
-      <CardContent />
+      {cardContent}
     </Link>
   );
 }

@@ -1,15 +1,42 @@
+version: '3.8'
+
 services:
-  db:
+  postgres:
     image: postgres:18-alpine
-    container_name: postgres_db
+    container_name: task_management_db
+    restart: always
     environment:
-      POSTGRES_USER: kharit46
-      POSTGRES_PASSWORD: 081146
-      POSTGRES_DB: technician_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+      POSTGRES_DB: task_management
+      PGDATA: /var/lib/postgresql/data/pgdata
     ports:
-      - "5434:5434"
-    volumes:
+      - "5434:5432"
+    volumes: 
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: task_management_pgadmin
+    restart: always
+    environment: 
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_LISTEN_PORT: 80
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - postgres
 
 volumes:
-  postgres_data:
+  postgres_data: 
+    driver: local
+  pgadmin_data:
+    driver: local

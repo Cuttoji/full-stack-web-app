@@ -38,13 +38,20 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   }
 
   return (
-    <div className="min-h-screen flex bg-gray-50">
+    <div className="min-h-screen flex relative overflow-hidden" style={{ background: 'linear-gradient(180deg, #87CEEB 0%, #B0E2FF 40%, #E0F4FF 100%)' }}>
+      {/* Floating Clouds */}
+      <div className="cloud cloud-1" />
+      <div className="cloud cloud-2" />
+      <div className="cloud cloud-3" />
+      <div className="cloud cloud-4" />
+      <div className="cloud cloud-5" />
+      
       <Sidebar />
       
       {/* Fixed Notification Bell - Top Right */}
       <NotificationBell className="fixed top-4 right-4 z-50" />
       
-      <main className="flex-1 p-4 lg:p-8 pt-16 lg:pt-8 pb-8 overflow-auto">
+      <main className="flex-1 p-4 lg:p-8 pt-16 lg:pt-8 pb-8 overflow-auto relative z-10">
         <div className="max-w-7xl mx-auto">
           {children}
         </div>

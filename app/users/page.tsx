@@ -37,6 +37,19 @@ export default function UsersPage() {
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('');
   const [departmentFilter, setDepartmentFilter] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<'all' | 'daily'>('all');
+  
+  // Daily technician states - weekly schedule (6 days, Mon-Sat)
+  const [weeklySchedule, setWeeklySchedule] = useState<Record<string, string>>({
+    monday: '',
+    tuesday: '',
+    wednesday: '',
+    thursday: '',
+    friday: '',
+    saturday: '',
+  });
+  const [tempTechnicianId, setTempTechnicianId] = useState<string>('');
+  const [isTempAssignment, setIsTempAssignment] = useState(false);
   
   // Form states
   const [formData, setFormData] = useState<CreateUserRequest>({
@@ -306,7 +319,7 @@ export default function UsersPage() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6 text-gray-800">
+      <div className="space-y-6 text-gray-800 mt-8">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -324,7 +337,35 @@ export default function UsersPage() {
           </Button>
         </div>
 
-        {/* Filters */}
+        {/* Tabs */}
+        <div className="flex gap-2 border-b border-gray-200">
+          <button
+            onClick={() => setActiveTab('all')}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'all'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <UsersIcon className="w-4 h-4 inline-block mr-2" />
+            จัดการผู้ใช้ทั้งหมด
+          </button>
+          <button
+            onClick={() => setActiveTab('daily')}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'daily'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <Calendar className="w-4 h-4 inline-block mr-2" />
+            ช่างประจำวัน
+          </button>
+        </div>
+
+        {activeTab === 'all' ? (
+          <>
+            {/* Filters */}
         <Card padding="sm">
           <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
             <div className="flex-1 w-full md:max-w-sm">
@@ -498,6 +539,180 @@ export default function UsersPage() {
             </Button>
           </div>
         )}
+          </>
+        ) : (
+          /* Daily Technician Assignment Tab */
+          <Card>
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-gray-900">จัดช่างประจำวัน</h2>
+                <p className="text-sm text-gray-500">
+                  วันนี้: {new Date().toLocaleDateString('th-TH', { weekday: 'long', day: 'numeric', month: 'long' })}
+                </p>
+              </div>
+
+              {/* Weekly Schedule */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-medium text-gray-700">ตารางช่างประจำสัปดาห์ (จันทร์ - เสาร์)</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-3">
+                  {[
+                    { key: 'monday', label: 'จันทร์', shortLabel: 'จ.' },
+                    { key: 'tuesday', label: 'อังคาร', shortLabel: 'อ.' },
+                    { key: 'wednesday', label: 'พุธ', shortLabel: 'พ.' },
+                    { key: 'thursday', label: 'พฤหัสบดี', shortLabel: 'พฤ.' },
+                    { key: 'friday', label: 'ศุกร์', shortLabel: 'ศ.' },
+                    { key: 'saturday', label: 'เสาร์', shortLabel: 'ส.' },
+                  ].map((day) => {
+                    const isToday = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase() === day.key;
+                    return (
+                      <div
+                        key={day.key}
+                        className={`p-3 rounded-lg border ${
+                          isToday 
+                            ? 'bg-blue-50 border-blue-300 ring-2 ring-blue-200' 
+                            : 'bg-gray-50 border-gray-200'
+                        }`}
+                      >
+                        <label className={`block text-xs font-semibold mb-2 ${isToday ? 'text-blue-700' : 'text-gray-600'}`}>
+                          {day.label}
+                          {isToday && <span className="ml-1 text-blue-500">(วันนี้)</span>}
+                        </label>
+                        <select
+                          value={weeklySchedule[day.key] || ''}
+                          onChange={(e) => setWeeklySchedule({ ...weeklySchedule, [day.key]: e.target.value })}
+                          className={`w-full px-2 py-1.5 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                            isToday ? 'border-blue-300 bg-white' : 'border-gray-300 bg-white'
+                          }`}
+                        >
+                          <option value="">-- เลือกช่าง --</option>
+                          {users.filter(u => u.role === Role.TECH || u.role === Role.LEADER).map((tech) => (
+                            <option key={tech.id} value={tech.id}>
+                              {tech.name}
+                            </option>
+                          ))}
+                        </select>
+                        {weeklySchedule[day.key] && (
+                          <p className="text-xs text-gray-500 mt-1 truncate">
+                            {users.find(u => u.id === weeklySchedule[day.key])?.subUnit?.name || 
+                             users.find(u => u.id === weeklySchedule[day.key])?.department?.name}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="text-xs text-gray-500 italic">* วันอาทิตย์หยุดทำการ</p>
+              </div>
+
+              {/* Today's Technician Summary */}
+              {(() => {
+                const todayKey = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+                const isSunday = todayKey === 'sunday';
+                const todayTechId = weeklySchedule[todayKey];
+                const todayTech = users.find(u => u.id === todayTechId);
+                
+                if (isSunday) {
+                  return (
+                    <div className="p-4 bg-gray-100 border border-gray-300 rounded-lg">
+                      <h4 className="text-sm font-medium text-gray-600 mb-2 flex items-center gap-2">
+                        <Calendar className="w-4 h-4" />
+                        วันอาทิตย์ - หยุดทำการ
+                      </h4>
+                      <p className="text-sm text-gray-500">วันนี้ไม่มีช่างประจำวัน (วันหยุด)</p>
+                    </div>
+                  );
+                }
+                
+                return (
+                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <h4 className="text-sm font-medium text-blue-800 mb-2 flex items-center gap-2">
+                      <UsersIcon className="w-4 h-4" />
+                      ช่างประจำวันนี้
+                    </h4>
+                    {todayTech ? (
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                          <span className="text-blue-600 font-medium">
+                            {todayTech.name.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="font-medium text-blue-900">{todayTech.name}</p>
+                          <p className="text-xs text-blue-600">
+                            {todayTech.subUnit?.name || todayTech.department?.name || 'ไม่ระบุแผนก'}
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-blue-600">ยังไม่ได้กำหนดช่างประจำวันนี้</p>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Temporary Assignment */}
+              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="flex items-center justify-between mb-3">
+                  <label className="text-sm font-medium text-yellow-800">
+                    <AlertTriangle className="w-4 h-4 inline-block mr-2" />
+                    มอบหมายช่างชั่วคราว (วันนี้เท่านั้น)
+                  </label>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={isTempAssignment}
+                      onChange={(e) => setIsTempAssignment(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-yellow-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-yellow-500"></div>
+                  </label>
+                </div>
+                
+                {isTempAssignment && (
+                  <>
+                    <select
+                      value={tempTechnicianId}
+                      onChange={(e) => setTempTechnicianId(e.target.value)}
+                      className="w-full px-3 py-2 border border-yellow-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 bg-white"
+                    >
+                      <option value="">-- เลือกช่างชั่วคราว --</option>
+                      {users.filter(u => u.role === Role.TECH || u.role === Role.LEADER).map((tech) => (
+                        <option key={tech.id} value={tech.id}>
+                          {tech.name} ({tech.subUnit?.name || tech.department?.name || 'ไม่ระบุแผนก'})
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-yellow-700 mt-2">
+                      ⚠️ ช่างชั่วคราวจะได้รับสิทธิ์แทนช่างประจำวันนี้ และจะกลับไปใช้ช่างเดิมเมื่อสิ้นสุดวัน
+                    </p>
+                  </>
+                )}
+              </div>
+
+              {/* Save Button */}
+              <div className="flex gap-3 pt-4 border-t">
+                <Button variant="outline" className="flex-1" onClick={() => {
+                  setWeeklySchedule({
+                    monday: '',
+                    tuesday: '',
+                    wednesday: '',
+                    thursday: '',
+                    friday: '',
+                    saturday: '',
+                  });
+                  setTempTechnicianId('');
+                  setIsTempAssignment(false);
+                }}>
+                  รีเซ็ตทั้งหมด
+                </Button>
+                <Button className="flex-1">
+                  <Calendar className="w-4 h-4 mr-2" />
+                  บันทึกตารางประจำสัปดาห์
+                </Button>
+              </div>
+            </div>
+          </Card>
+        )}
       </div>
 
       {/* Create/Edit User Modal */}
@@ -636,118 +851,110 @@ export default function UsersPage() {
           {/* Permissions Section */}
           {isEditModalOpen && selectedUser && (
             <div className="border-t pt-4 mt-4">
-              <h3 className="text-lg font-semibold mb-4">สิทธิ์การใช้งาน</h3>
+              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <Shield className="w-5 h-5" />
+                สิทธิ์การใช้งาน
+              </h3>
               
-              {/* Calendar & Tasks */}
-              <div className="mb-4">
-                <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
-                  <Calendar className="w-4 h-4" />
-                  ปฏิทินและงาน
-                </h4>
-                <div className="space-y-3 pl-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">ดูปฏิทินทั้งหมด</p>
-                      <p className="text-xs text-gray-600">เข้าถึงปฏิทินของทีมและตารางงานทั้งหมด</p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={formData.permissions?.canViewAllCalendars || false}
-                        onChange={(e) => setFormData({
-                          ...formData,
-                          permissions: { ...formData.permissions, canViewAllCalendars: e.target.checked }
-                        })}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                    </label>
+              <div className="space-y-4">
+                {/* Manage Tasks (Combined) */}
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">จัดการงาน</p>
+                    <p className="text-xs text-gray-600">เพิ่ม แก้ไขรายละเอียด และมอบหมายงาน</p>
                   </div>
-
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">แก้ไขรายละเอียดงาน</p>
-                      <p className="text-xs text-gray-600">แก้ไขคำอธิบาย กำหนดเวลา และผู้รับมอบหมาย</p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={formData.permissions?.canEditTaskDetails || false}
-                        onChange={(e) => setFormData({
-                          ...formData,
-                          permissions: { ...formData.permissions, canEditTaskDetails: e.target.checked }
-                        })}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                    </label>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">ลบงาน</p>
-                      <p className="text-xs text-gray-600">ลบงานออกจากระบบอย่างถาวร</p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={formData.permissions?.canDeleteTasks || false}
-                        onChange={(e) => setFormData({
-                          ...formData,
-                          permissions: { ...formData.permissions, canDeleteTasks: e.target.checked }
-                        })}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                    </label>
-                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.permissions?.canManageTasks || false}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        permissions: { ...formData.permissions, canManageTasks: e.target.checked }
+                      })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                  </label>
                 </div>
-              </div>
 
-              {/* Fleet Management */}
-              <div className="mb-4">
-                <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
-                  <CarIcon className="w-4 h-4" />
-                  การจัดการรถ
-                </h4>
-                <div className="space-y-3 pl-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">จองรถ</p>
-                      <p className="text-xs text-gray-600">สำรองรถสำหรับการเดินทางธุรกิจ</p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={formData.permissions?.canBookVehicles || false}
-                        onChange={(e) => setFormData({
-                          ...formData,
-                          permissions: { ...formData.permissions, canBookVehicles: e.target.checked }
-                        })}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                    </label>
+                {/* Approve Leave/Documents */}
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">อนุมัติลา/เอกสาร</p>
+                    <p className="text-xs text-gray-600">อนุมัติหรือปฏิเสธคำขอลาและเอกสาร</p>
                   </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.permissions?.canApproveLeave || false}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        permissions: { ...formData.permissions, canApproveLeave: e.target.checked }
+                      })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                  </label>
+                </div>
 
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">จัดการรถทั้งหมด</p>
-                      <p className="text-xs text-gray-600">เข้าถึงฐานข้อมูลรถแบบผู้ดูแลระบบ</p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={formData.permissions?.canManageFleet || false}
-                        onChange={(e) => setFormData({
-                          ...formData,
-                          permissions: { ...formData.permissions, canManageFleet: e.target.checked }
-                        })}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                    </label>
+                {/* Manage Fleet */}
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">จัดการรถทั้งหมด</p>
+                    <p className="text-xs text-gray-600">เพิ่ม แก้ไข ลบ และจัดสรรรถ</p>
                   </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.permissions?.canManageFleet || false}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        permissions: { ...formData.permissions, canManageFleet: e.target.checked }
+                      })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                  </label>
+                </div>
+
+                {/* Manage Users */}
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">จัดการผู้ใช้</p>
+                    <p className="text-xs text-gray-600">เพิ่ม แก้ไข และลบผู้ใช้ในระบบ</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.permissions?.canManageUsers || false}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        permissions: { ...formData.permissions, canManageUsers: e.target.checked }
+                      })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                  </label>
+                </div>
+
+                {/* Manage Daily Technician */}
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">ปรับเปลี่ยนช่างประจำวัน</p>
+                    <p className="text-xs text-gray-600">มอบหมายและปรับเปลี่ยนช่างประจำวัน</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.permissions?.canManageDailyTechnician || false}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        permissions: { ...formData.permissions, canManageDailyTechnician: e.target.checked }
+                      })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                  </label>
                 </div>
               </div>
             </div>

@@ -146,7 +146,7 @@ export default function SettingsPage() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6 max-w-3xl text-gray-800">
+      <div className="space-y-6 max-w-3xl text-gray-800 mt-8">
         {/* Header */}
         <div>
           <h1 className="text-2xl font-bold text-gray-900">ตั้งค่า</h1>
