@@ -136,7 +136,7 @@ export default function TrashPage() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6 text-gray-800 mt-8">
+      <div className="space-y-6 mt-8">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
@@ -150,7 +150,7 @@ export default function TrashPage() {
                 <Trash2 className="w-6 h-6 text-red-500" />
                 ถังขยะ
               </h1>
-              <p className="text-gray-600">งานที่ถูกลบจะถูกเก็บไว้ 30 วัน ก่อนลบถาวรอัตโนมัติ</p>
+              <p className="text-gray-900">งานที่ถูกลบจะถูกเก็บไว้ 30 วัน ก่อนลบถาวรอัตโนมัติ</p>
             </div>
           </div>
           {canManageTrash && deletedTasks.length > 0 && (
@@ -213,10 +213,10 @@ export default function TrashPage() {
           </div>
         ) : (
           <Card>
-            <div className="text-center py-12 text-gray-500">
-              <Trash2 className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-              <p className="text-lg font-medium text-gray-700">ถังขยะว่างเปล่า</p>
-              <p className="text-sm mt-1">ไม่มีงานที่ถูกลบในขณะนี้</p>
+            <div className="text-center py-12">
+              <Trash2 className="w-16 h-16 mx-auto mb-4 text-gray-400" />
+              <p className="text-lg font-medium text-gray-900">ถังขยะว่างเปล่า</p>
+              <p className="text-sm mt-1 text-gray-900">ไม่มีงานที่ถูกลบในขณะนี้</p>
             </div>
           </Card>
         )}

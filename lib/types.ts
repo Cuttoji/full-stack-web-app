@@ -3,12 +3,15 @@
 // ==================== ENUMS ====================
 
 export enum Role {
-  ADMIN = 'ADMIN',
-  FINANCE = 'FINANCE',
-  SALES = 'SALES',
-  HEAD_TECH = 'HEAD_TECH',
-  LEADER = 'LEADER',
-  TECH = 'TECH',
+  ADMIN = 'ADMIN',               // ผู้บริหารสูงสุด
+  CUSTOMER_SERVICE = 'CUSTOMER_SERVICE', // ฝ่ายบริการลูกค้า
+  FINANCE_LEADER = 'FINANCE_LEADER',     // หัวหน้าฝ่ายการเงิน
+  FINANCE = 'FINANCE',           // เจ้าหน้าที่การเงิน
+  SALES_LEADER = 'SALES_LEADER', // หัวหน้าฝ่ายขาย
+  SALES = 'SALES',               // พนักงานขาย
+  HEAD_TECH = 'HEAD_TECH',       // หัวหน้าแผนกช่าง
+  LEADER = 'LEADER',             // หัวหน้าทีม
+  TECH = 'TECH',                 // ช่าง
 }
 
 export enum TaskStatus {
@@ -33,9 +36,10 @@ export enum LeaveType {
 }
 
 export enum SubUnitType {
-  RENTAL = 'RENTAL',
-  INSTALLATION = 'INSTALLATION',
-  PRINTER = 'PRINTER',
+  RENTAL = 'RENTAL',             // ทีมเครื่องเช่า
+  INSTALLATION = 'INSTALLATION', // ทีมติดตั้ง (กล้องวงจรปิด ฯลฯ)
+  PRINTER = 'PRINTER',           // ทีมปริ้นเตอร์
+  IT = 'IT',                     // ทีมไอที (IT Install)
 }
 
 export enum CarStatus {
@@ -79,29 +83,209 @@ export interface User {
   role: Role;
   departmentId?: string;
   subUnitId?: string;
+  supervisorId?: string;        // ผู้บังคับบัญชาโดยตรง (สำหรับ Hierarchical Approval)
   leaveQuota: number;
   leaveUsed: number;
   isActive: boolean;
   permissions?: UserPermissions;
+  permissionScope?: PermissionScope; // Scope ของสิทธิ์
   createdAt: Date;
   updatedAt: Date;
   department?: Department;
   subUnit?: SubUnit;
+  supervisor?: User;            // ผู้บังคับบัญชา
+  subordinates?: User[];        // ผู้ใต้บังคับบัญชา
+}
+
+// ==================== PERMISSION SYSTEM ====================
+
+// ขอบเขตของสิทธิ์ (Permission Scope)
+export type PermissionScopeType = 'ALL' | 'DEPARTMENT' | 'SUBUNIT' | 'TEAM' | 'SELF';
+
+export interface PermissionScope {
+  type: PermissionScopeType;
+  departmentIds?: string[];     // ถ้า type = DEPARTMENT
+  subUnitIds?: string[];        // ถ้า type = SUBUNIT
+  userIds?: string[];           // ถ้า type = TEAM (เฉพาะทีมที่กำหนด)
 }
 
 export interface UserPermissions {
-  canViewAllCalendars?: boolean;
+  // Task Permissions
+  canViewTasks?: boolean;
+  canCreateTasks?: boolean;
   canEditTaskDetails?: boolean;
   canDeleteTasks?: boolean;
+  canAssignTasks?: boolean;
+  canManageTasks?: boolean;
+  
+  // Calendar Permissions
+  canViewAllCalendars?: boolean;
+  canViewTeamCalendar?: boolean;
+  
+  // Vehicle Permissions
   canBookVehicles?: boolean;
   canManageFleet?: boolean;
-  canCreateTasks?: boolean;
-  canAssignTasks?: boolean;
+  
+  // Leave Permissions
   canApproveLeave?: boolean;
+  canViewLeaveRequests?: boolean;
+  
+  // User Management
   canManageUsers?: boolean;
-  canManageTasks?: boolean;
+  canViewAllUsers?: boolean;
+  
+  // Daily Operations
   canManageDailyTechnician?: boolean;
+  
+  // Reports
+  canViewReports?: boolean;
+  canExportData?: boolean;
 }
+
+// ==================== ROLE HIERARCHY & DEFAULT PERMISSIONS ====================
+
+// ลำดับชั้นของ Role (สำหรับ Hierarchical Approval)
+export const RoleHierarchy: Record<Role, number> = {
+  [Role.ADMIN]: 100,
+  [Role.CUSTOMER_SERVICE]: 50,
+  [Role.FINANCE_LEADER]: 60,
+  [Role.FINANCE]: 40,
+  [Role.SALES_LEADER]: 60,
+  [Role.SALES]: 40,
+  [Role.HEAD_TECH]: 70,
+  [Role.LEADER]: 50,
+  [Role.TECH]: 30,
+};
+
+// ใครอนุมัติใบลาของใคร
+export const LeaveApprovalChain: Record<Role, Role[]> = {
+  [Role.TECH]: [Role.LEADER, Role.HEAD_TECH],           // ช่าง → หัวหน้าทีม หรือ หัวหน้าแผนก
+  [Role.LEADER]: [Role.HEAD_TECH],                       // หัวหน้าทีม → หัวหน้าแผนก
+  [Role.HEAD_TECH]: [Role.ADMIN],                        // หัวหน้าแผนก → ผู้บริหาร
+  [Role.SALES]: [Role.SALES_LEADER],                     // พนักงานขาย → หัวหน้าฝ่ายขาย
+  [Role.SALES_LEADER]: [Role.ADMIN],                     // หัวหน้าฝ่ายขาย → ผู้บริหาร
+  [Role.FINANCE]: [Role.FINANCE_LEADER],                 // เจ้าหน้าที่การเงิน → หัวหน้าการเงิน
+  [Role.FINANCE_LEADER]: [Role.ADMIN],                   // หัวหน้าการเงิน → ผู้บริหาร
+  [Role.CUSTOMER_SERVICE]: [Role.ADMIN],                 // ฝ่ายบริการลูกค้า → ผู้บริหาร
+  [Role.ADMIN]: [],                                       // ผู้บริหาร → ไม่ต้องมีใครอนุมัติ (หรืออนุมัติตัวเอง)
+};
+
+// Default Permissions ตาม Role
+export const DefaultRolePermissions: Record<Role, UserPermissions> = {
+  [Role.ADMIN]: {
+    canViewTasks: true,
+    canCreateTasks: true,
+    canEditTaskDetails: true,
+    canDeleteTasks: true,
+    canAssignTasks: true,
+    canManageTasks: true,
+    canViewAllCalendars: true,
+    canViewTeamCalendar: true,
+    canBookVehicles: true,
+    canManageFleet: true,
+    canApproveLeave: true,
+    canViewLeaveRequests: true,
+    canManageUsers: true,
+    canViewAllUsers: true,
+    canManageDailyTechnician: true,
+    canViewReports: true,
+    canExportData: true,
+  },
+  [Role.CUSTOMER_SERVICE]: {
+    canViewTasks: true,
+    canCreateTasks: true,
+    canEditTaskDetails: true,
+    canViewAllCalendars: true,
+    canViewTeamCalendar: true,
+    canBookVehicles: true,
+    canViewLeaveRequests: true,
+    canViewAllUsers: true,
+    canViewReports: true,
+  },
+  [Role.FINANCE_LEADER]: {
+    canViewTasks: true,
+    canViewAllCalendars: true,
+    canViewTeamCalendar: true,
+    canApproveLeave: true,
+    canViewLeaveRequests: true,
+    canManageUsers: true,
+    canViewAllUsers: true,
+    canViewReports: true,
+    canExportData: true,
+  },
+  [Role.FINANCE]: {
+    canViewTasks: true,
+    canViewTeamCalendar: true,
+    canViewLeaveRequests: true,
+    canViewReports: true,
+  },
+  [Role.SALES_LEADER]: {
+    canViewTasks: true,
+    canCreateTasks: true,
+    canViewAllCalendars: true,
+    canViewTeamCalendar: true,
+    canApproveLeave: true,
+    canViewLeaveRequests: true,
+    canManageUsers: true,
+    canViewAllUsers: true,
+    canViewReports: true,
+  },
+  [Role.SALES]: {
+    canViewTasks: true,
+    canCreateTasks: true,
+    canViewTeamCalendar: true,
+    canViewReports: true,
+  },
+  [Role.HEAD_TECH]: {
+    canViewTasks: true,
+    canCreateTasks: true,
+    canEditTaskDetails: true,
+    canDeleteTasks: true,
+    canAssignTasks: true,
+    canManageTasks: true,
+    canViewAllCalendars: true,
+    canViewTeamCalendar: true,
+    canBookVehicles: true,
+    canManageFleet: true,
+    canApproveLeave: true,
+    canViewLeaveRequests: true,
+    canManageUsers: true,
+    canViewAllUsers: true,
+    canManageDailyTechnician: true,
+    canViewReports: true,
+    canExportData: true,
+  },
+  [Role.LEADER]: {
+    canViewTasks: true,
+    canCreateTasks: true,
+    canEditTaskDetails: true,
+    canAssignTasks: true,
+    canViewTeamCalendar: true,
+    canBookVehicles: true,
+    canApproveLeave: true,
+    canViewLeaveRequests: true,
+    canManageDailyTechnician: true,
+    canViewReports: true,
+  },
+  [Role.TECH]: {
+    canViewTasks: true,
+    canViewTeamCalendar: true,
+    canBookVehicles: true,
+  },
+};
+
+// Default Permission Scope ตาม Role
+export const DefaultRoleScope: Record<Role, PermissionScope> = {
+  [Role.ADMIN]: { type: 'ALL' },
+  [Role.CUSTOMER_SERVICE]: { type: 'ALL' },
+  [Role.FINANCE_LEADER]: { type: 'DEPARTMENT' },
+  [Role.FINANCE]: { type: 'SELF' },
+  [Role.SALES_LEADER]: { type: 'DEPARTMENT' },
+  [Role.SALES]: { type: 'SELF' },
+  [Role.HEAD_TECH]: { type: 'DEPARTMENT' },
+  [Role.LEADER]: { type: 'SUBUNIT' },
+  [Role.TECH]: { type: 'SELF' },
+};
 
 export interface Car {
   id: string;
@@ -219,15 +403,37 @@ export interface Leave {
   endDate: Date;
   totalDays: number;
   reason?: string;
+  
+  // Hierarchical Approval
+  currentApproverId?: string;       // ผู้ที่ต้องอนุมัติปัจจุบัน
+  approvalChain?: LeaveApproval[];  // ประวัติการอนุมัติตามลำดับชั้น
+  approvalLevel?: number;           // ระดับการอนุมัติปัจจุบัน
+  
+  // Legacy fields (for backward compatibility)
   approvedById?: string;
   approverNote?: string;
   approvedAt?: Date;
   rejectedReason?: string;
+  
   createdAt: Date;
   updatedAt: Date;
   user?: User;
   approver?: User;
   approvedBy?: User;
+  currentApprover?: User;
+}
+
+// ประวัติการอนุมัติตามลำดับชั้น
+export interface LeaveApproval {
+  id: string;
+  leaveId: string;
+  approverId: string;
+  approverRole: Role;
+  level: number;                    // ลำดับการอนุมัติ (1, 2, 3...)
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  comment?: string;
+  actionAt?: Date;
+  approver?: User;
 }
 
 export interface Notification {
@@ -524,18 +730,22 @@ export const LeaveStatusLabels: Record<LeaveStatus, string> = {
 };
 
 export const RoleLabels: Record<Role, string> = {
-  [Role.ADMIN]: 'ผู้ดูแลระบบ',
-  [Role.FINANCE]: 'การเงิน',
-  [Role.SALES]: 'ฝ่ายขาย',
-  [Role.HEAD_TECH]: 'หัวหน้าช่าง',
-  [Role.LEADER]: 'หัวหน้ากลุ่ม',
+  [Role.ADMIN]: 'ผู้บริหารสูงสุด',
+  [Role.CUSTOMER_SERVICE]: 'ฝ่ายบริการลูกค้า',
+  [Role.FINANCE_LEADER]: 'หัวหน้าฝ่ายการเงิน',
+  [Role.FINANCE]: 'เจ้าหน้าที่การเงิน',
+  [Role.SALES_LEADER]: 'หัวหน้าฝ่ายขาย',
+  [Role.SALES]: 'พนักงานขาย',
+  [Role.HEAD_TECH]: 'หัวหน้าแผนกช่าง',
+  [Role.LEADER]: 'หัวหน้าทีม',
   [Role.TECH]: 'ช่าง',
 };
 
 export const SubUnitTypeLabels: Record<SubUnitType, string> = {
-  [SubUnitType.RENTAL]: 'เครื่องเช่า',
-  [SubUnitType.INSTALLATION]: 'ติดตั้ง',
-  [SubUnitType.PRINTER]: 'ปริ้นเตอร์',
+  [SubUnitType.RENTAL]: 'ทีมเครื่องเช่า',
+  [SubUnitType.INSTALLATION]: 'ทีมติดตั้ง',
+  [SubUnitType.PRINTER]: 'ทีมปริ้นเตอร์',
+  [SubUnitType.IT]: 'ทีมไอที',
 };
 
 // Alias exports for backward compatibility

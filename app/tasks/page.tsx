@@ -166,7 +166,7 @@ export default function TasksPage() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6 text-gray-800 mt-8">
+      <div className="space-y-6 mt-8">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -200,13 +200,13 @@ export default function TasksPage() {
           <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
             <div className="flex-1 w-full md:max-w-sm">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-900" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
                 <input
                   type="text"
                   placeholder="ค้นหางาน..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                 />
               </div>
             </div>
@@ -215,7 +215,7 @@ export default function TasksPage() {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
               >
                 <option value="">ทุกสถานะ</option>
                 <option value="WAITING">รอรับงาน</option>
@@ -227,7 +227,7 @@ export default function TasksPage() {
               <select
                 value={subUnitFilter}
                 onChange={(e) => setSubUnitFilter(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
               >
                 <option value="">ทุกกลุ่มงาน</option>
                 {subUnits.map((unit) => (
@@ -262,10 +262,10 @@ export default function TasksPage() {
           </div>
         ) : (
           <Card>
-            <div className="text-center py-12 text-gray-900">
-              <Filter className="w-12 h-12 mx-auto mb-4 text-gray-900" />
-              <p className="text-lg font-medium">ไม่พบงาน</p>
-              <p className="text-sm">ลองเปลี่ยนตัวกรองหรือสร้างงานใหม่</p>
+            <div className="text-center py-12">
+              <Filter className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+              <p className="text-lg font-medium text-red-900">ไม่พบงาน</p>
+              <p className="text-sm text-gray-900">ลองเปลี่ยนตัวกรองหรือสร้างงานใหม่</p>
             </div>
           </Card>
         )}
