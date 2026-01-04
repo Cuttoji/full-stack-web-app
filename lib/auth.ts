@@ -10,8 +10,10 @@ import {
   RoleHierarchy,
   LeaveApprovalChain 
 } from './types';
+import { getEnv } from './env';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+const env = getEnv();
+const JWT_SECRET = env.JWT_SECRET;
 const JWT_EXPIRES_IN = '7d';
 
 export async function hashPassword(password: string): Promise<string> {

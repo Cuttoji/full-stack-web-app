@@ -12,8 +12,40 @@ const dirname =
 
 // More info at: https://storybook.js.org/docs/next/writing-tests/integrations/vitest-addon
 export default defineConfig({
+  resolve: {
+    alias: {
+      '@': path.resolve(dirname),
+    },
+  },
   test: {
+    // Global settings for all projects
+    globals: true,
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'lcov', 'html'],
+      reportsDirectory: './coverage',
+      exclude: [
+        'node_modules/**',
+        '.storybook/**',
+        '**/*.d.ts',
+        '**/*.config.*',
+        '**/types.ts',
+        'playwright-report/**',
+        'e2e/**',
+      ],
+    },
     projects: [
+      // Unit tests project
+      {
+        extends: true,
+        test: {
+          name: 'unit',
+          include: ['__tests__/**/*.test.ts', '__tests__/**/*.test.tsx'],
+          exclude: ['node_modules', '.storybook'],
+          environment: 'node',
+        },
+      },
+      // Storybook tests project
       {
         extends: true,
         plugins: [

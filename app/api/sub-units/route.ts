@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken, getTokenFromHeader, hasPermission } from '@/lib/auth';
 import { ApiResponse, Role } from '@/lib/types';
-import { USE_MOCK_DB, mockDb } from '@/lib/mockDb';
+import prisma from '@/lib/prisma';
 
 // GET /api/sub-units - Get all sub-units
 export async function GET(request: NextRequest) {
@@ -20,21 +20,28 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const departmentId = searchParams.get('departmentId');
 
-    if (USE_MOCK_DB) {
-      const where: Record<string, unknown> = {};
-      if (departmentId) where.departmentId = departmentId;
-
-      const subUnits = await mockDb.subUnits.findMany({ where });
-      return NextResponse.json<ApiResponse>({
-        success: true,
-        data: subUnits,
-      });
+    const whereClause: { departmentId?: string } = {};
+    if (departmentId) {
+      whereClause.departmentId = departmentId;
     }
 
-    return NextResponse.json<ApiResponse>(
-      { success: false, error: 'Database not configured' },
-      { status: 500 }
-    );
+    const subUnits = await prisma.subUnit.findMany({
+      where: whereClause,
+      include: {
+        department: true,
+        _count: {
+          select: { users: true },
+        },
+      },
+      orderBy: {
+        name: 'asc',
+      },
+    });
+
+    return NextResponse.json<ApiResponse>({
+      success: true,
+      data: subUnits,
+    });
   } catch (error) {
     console.error('Get sub-units error:', error);
     return NextResponse.json<ApiResponse>(
@@ -68,10 +75,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Verify department exists
+    const department = await prisma.department.findUnique({
+      where: { id: departmentId },
+    });
+
+    if (!department) {
+      return NextResponse.json<ApiResponse>(
+        { success: false, error: 'ไม่พบแผนกที่ระบุ' },
+        { status: 404 }
+      );
+    }
+
+    const newSubUnit = await prisma.subUnit.create({
+      data: {
+        name,
+        type,
+        departmentId,
+      },
+      include: {
+        department: true,
+        _count: {
+          select: { users: true },
+        },
+      },
+    });
+
     return NextResponse.json<ApiResponse>({
       success: true,
-      data: { id: 'mock-sub-unit', name, type, departmentId },
-      message: 'สร้างกลุ่มย่อยสำเร็จ (Mock)',
+      data: newSubUnit,
+      message: 'สร้างกลุ่มย่อยสำเร็จ',
     });
   } catch (error) {
     console.error('Create sub-unit error:', error);

@@ -1,68 +1,97 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { generateToken } from '@/lib/auth';
+import { RateLimiterMemory } from 'rate-limiter-flexible';
+import { generateToken, verifyPassword } from '@/lib/auth';
 import { ApiResponse, LoginResponse, Role } from '@/lib/types';
-import { USE_MOCK_DB } from '@/lib/mockDb';
-import { findUserByEmail } from '@/lib/mockData';
+import { loginSchema, validateRequest } from '@/lib/validations';
+import prisma from '@/lib/prisma';
+
+// Rate limiter: 5 requests per minute per IP
+const rateLimiter = new RateLimiterMemory({
+  points: 5,
+  duration: 60,
+});
 
 // POST /api/auth/login - Login user
 export async function POST(request: NextRequest) {
+  const ip =
+    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    request.ip ||
+    'unknown';
+
+  try {
+    await rateLimiter.consume(ip);
+  } catch {
+    return NextResponse.json<ApiResponse>(
+      { success: false, error: 'ขออภัย คุณส่งคำขอมากเกินไป กรุณารอสักครู่' },
+      { status: 429 }
+    );
+  }
+
   try {
     const body = await request.json();
-    const { email, password } = body;
-
-    if (!email || !password) {
+    
+    // Validate request body
+    const validation = validateRequest(loginSchema, body);
+    if (!validation.success) {
       return NextResponse.json<ApiResponse>(
-        { success: false, error: 'กรุณากรอกอีเมลและรหัสผ่าน' },
+        { success: false, error: validation.errors.join(', ') },
         { status: 400 }
       );
     }
+    
+    const { email, password } = validation.data;
 
-    if (USE_MOCK_DB) {
-      // Mock mode - accept any password for demo users
-      const user = findUserByEmail(email);
-      
-      if (!user) {
-        return NextResponse.json<ApiResponse>(
-          { success: false, error: 'ไม่พบบัญชีผู้ใช้นี้ในระบบทดสอบ' },
-          { status: 401 }
-        );
-      }
+    const user = await prisma.user.findUnique({
+      where: { email },
+      include: {
+        department: true,
+        subUnit: true,
+      },
+    });
 
-      if (!user.isActive) {
-        return NextResponse.json<ApiResponse>(
-          { success: false, error: 'บัญชีของคุณถูกระงับ' },
-          { status: 403 }
-        );
-      }
-
-      const token = generateToken({
-        id: user.id,
-        employeeId: user.employeeId,
-        email: user.email,
-        name: user.name,
-        role: user.role as Role,
-        departmentId: user.departmentId || undefined,
-        subUnitId: user.subUnitId || undefined,
-      });
-
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { password: _, ...userWithoutPassword } = user;
-
-      return NextResponse.json<ApiResponse<LoginResponse>>({
-        success: true,
-        data: {
-          user: userWithoutPassword as LoginResponse['user'],
-          token,
-        },
-        message: 'เข้าสู่ระบบสำเร็จ (โหมดทดสอบ)',
-      });
+    if (!user) {
+      return NextResponse.json<ApiResponse>(
+        { success: false, error: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' },
+        { status: 401 }
+      );
     }
 
-    // Real DB mode - would use Prisma (not configured)
-    return NextResponse.json<ApiResponse>(
-      { success: false, error: 'Database not configured. Use mock mode.' },
-      { status: 500 }
-    );
+    const isValidPassword = await verifyPassword(password, user.password);
+    if (!isValidPassword) {
+      return NextResponse.json<ApiResponse>(
+        { success: false, error: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' },
+        { status: 401 }
+      );
+    }
+
+    if (!user.isActive) {
+      return NextResponse.json<ApiResponse>(
+        { success: false, error: 'บัญชีของคุณถูกระงับ' },
+        { status: 403 }
+      );
+    }
+
+    const token = generateToken({
+      id: user.id,
+      employeeId: user.employeeId,
+      email: user.email,
+      name: user.name,
+      role: user.role as Role,
+      departmentId: user.departmentId || undefined,
+      subUnitId: user.subUnitId || undefined,
+    });
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { password: _, ...userWithoutPassword } = user;
+
+    return NextResponse.json<ApiResponse<LoginResponse>>({
+      success: true,
+      data: {
+        user: userWithoutPassword as LoginResponse['user'],
+        token,
+      },
+      message: 'เข้าสู่ระบบสำเร็จ',
+    });
   } catch (error) {
     console.error('Login error:', error);
     return NextResponse.json<ApiResponse>(

@@ -4,8 +4,17 @@ import { useEffect, useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useAuth, useRoleAccess } from '@/contexts/AuthContext';
 import { Button, Card, Modal } from '@/components/ui';
-import { Leave, LeaveStatus, CreateLeaveRequest } from '@/lib/types';
-import { LEAVE_STATUS_LABELS, LEAVE_TYPE_LABELS } from '@/lib/types';
+import { 
+  Leave, 
+  LeaveStatus, 
+  LeaveType,
+  LeaveDurationType,
+  HalfDayPeriod,
+  CreateLeaveRequest,
+  LEAVE_TYPE_CONFIGS,
+  UserLeaveBalance,
+} from '@/lib/types';
+import { LEAVE_STATUS_LABELS, LEAVE_TYPE_LABELS, LeaveDurationTypeLabels, HalfDayPeriodLabels } from '@/lib/types';
 import {
   Plus,
   Calendar,
@@ -15,8 +24,20 @@ import {
   FileText,
   User,
   AlertTriangle,
+  Info,
 } from 'lucide-react';
 import { formatDate, formatDateTime } from '@/lib/utils';
+
+interface LeaveQuotaSummary {
+  type: LeaveType;
+  label: string;
+  quota: number;
+  used: number;
+  pending: number;
+  remaining: number;
+  allowedDurationTypes: string[];
+  note?: string;
+}
 
 export default function LeavesPage() {
   const { user } = useAuth();
@@ -28,6 +49,10 @@ export default function LeavesPage() {
   const [selectedLeave, setSelectedLeave] = useState<Leave | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   
+  // Leave Balance State
+  const [, setLeaveBalance] = useState<UserLeaveBalance | null>(null);
+  const [quotaSummary, setQuotaSummary] = useState<LeaveQuotaSummary[]>([]);
+  
   // Filter states
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [viewMode, setViewMode] = useState<'my' | 'pending' | 'all'>('my');
@@ -38,9 +63,11 @@ export default function LeavesPage() {
     startDate: '',
     endDate: '',
     reason: '',
+    durationType: LeaveDurationType.FULL_DAY,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
+  const [formWarnings, setFormWarnings] = useState<string[]>([]);
 
   // For approval
   const [approvalNote, setApprovalNote] = useState('');
@@ -54,6 +81,37 @@ export default function LeavesPage() {
     status: string;
   }[]>([]);
   const [hasTaskConflicts, setHasTaskConflicts] = useState(false);
+
+  // Get allowed duration types for selected leave type
+  const getAllowedDurationTypes = (leaveType: string): LeaveDurationType[] => {
+    const config = LEAVE_TYPE_CONFIGS[leaveType as LeaveType];
+    return config?.allowedDurationTypes || [LeaveDurationType.FULL_DAY];
+  };
+
+  // Get remaining quota for a specific leave type
+  const getRemainingQuota = (leaveType: string): number => {
+    const quota = quotaSummary.find(q => q.type === leaveType);
+    return quota?.remaining || 0;
+  };
+
+  const fetchLeaveBalance = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    try {
+      const response = await fetch('/api/leaves/balance', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setLeaveBalance(data.data.balance);
+        setQuotaSummary(data.data.summary);
+      }
+    } catch {
+      console.error('Failed to fetch leave balance');
+    }
+  };
 
   const fetchLeaves = async () => {
     const token = localStorage.getItem('token');
@@ -90,11 +148,13 @@ export default function LeavesPage() {
 
   useEffect(() => {
     fetchLeaves();
+    fetchLeaveBalance();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter, viewMode]);
 
   const handleCreateLeave = async () => {
     setFormError('');
+    setFormWarnings([]);
     
     if (!formData.startDate || !formData.endDate || !formData.reason) {
       setFormError('กรุณากรอกข้อมูลให้ครบถ้วน');
@@ -103,6 +163,25 @@ export default function LeavesPage() {
 
     if (new Date(formData.startDate) > new Date(formData.endDate)) {
       setFormError('วันที่เริ่มต้องไม่มากกว่าวันที่สิ้นสุด');
+      return;
+    }
+
+    // Validate duration type for leave type
+    const allowedTypes = getAllowedDurationTypes(formData.type as string);
+    if (!allowedTypes.includes(formData.durationType as LeaveDurationType)) {
+      setFormError(`ประเภทการลานี้ไม่รองรับการลาแบบ${LeaveDurationTypeLabels[formData.durationType as LeaveDurationType]}`);
+      return;
+    }
+
+    // Check quota
+    const remaining = getRemainingQuota(formData.type as string);
+    const diffDays = Math.ceil(
+      (new Date(formData.endDate).getTime() - new Date(formData.startDate).getTime()) / (1000 * 60 * 60 * 24)
+    ) + 1;
+    const requestDays = formData.durationType === LeaveDurationType.HALF_DAY ? diffDays * 0.5 : diffDays;
+    
+    if (requestDays > remaining) {
+      setFormError(`โควตา${LEAVE_TYPE_LABELS[formData.type as LeaveType]}ไม่เพียงพอ (คงเหลือ ${remaining} วัน)`);
       return;
     }
 
@@ -135,14 +214,28 @@ export default function LeavesPage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          totalDays: requestDays,
+        }),
       });
 
       const result = await response.json();
       if (result.success) {
+        // Show warnings if any
+        if (result.data?.warnings && result.data.warnings.length > 0) {
+          setFormWarnings(result.data.warnings);
+        }
         setIsCreateModalOpen(false);
-        setFormData({ type: 'PERSONAL', startDate: '', endDate: '', reason: '' });
+        setFormData({ 
+          type: 'PERSONAL', 
+          startDate: '', 
+          endDate: '', 
+          reason: '',
+          durationType: LeaveDurationType.FULL_DAY,
+        });
         fetchLeaves();
+        fetchLeaveBalance(); // Refresh balance
       } else {
         setFormError(result.error || 'ไม่สามารถส่งคำขอได้');
       }
@@ -255,13 +348,53 @@ export default function LeavesPage() {
         </div>
 
         {/* Leave Quota Info */}
-        {user && (
-          <Card padding="sm">
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2">
+        {user && quotaSummary.length > 0 && (
+          <Card padding="md">
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-blue-500" />
-                <span className="text-sm text-gray-600">วันลาคงเหลือ:</span>
-                <span className="font-semibold text-blue-600">{user.leaveQuota || 0} วัน</span>
+                โควตาการลาประจำปี {new Date().getFullYear()}
+              </h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {quotaSummary.filter(q => q.type !== LeaveType.OTHER).map((quota) => (
+                  <div 
+                    key={quota.type} 
+                    className={`p-4 rounded-lg border ${
+                      quota.remaining === 0 
+                        ? 'bg-red-50 border-red-200' 
+                        : 'bg-blue-50 border-blue-200'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-700">{quota.label}</span>
+                      {quota.note && (
+                        <div className="group relative">
+                          <Info className="w-4 h-4 text-gray-400 cursor-help" />
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block w-48 p-2 bg-gray-800 text-white text-xs rounded shadow-lg z-10">
+                            {quota.note}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-baseline gap-1">
+                      <span className={`text-2xl font-bold ${
+                        quota.remaining === 0 ? 'text-red-600' : 'text-blue-600'
+                      }`}>
+                        {quota.remaining}
+                      </span>
+                      <span className="text-sm text-gray-500">/ {quota.quota} วัน</span>
+                    </div>
+                    <div className="mt-2 text-xs text-gray-500 space-y-1">
+                      <div>ใช้ไป: {quota.used} วัน</div>
+                      {quota.pending > 0 && (
+                        <div className="text-yellow-600">รออนุมัติ: {quota.pending} วัน</div>
+                      )}
+                      <div className="text-gray-400">
+                        รูปแบบ: {quota.allowedDurationTypes.join(', ')}
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </Card>
@@ -424,19 +557,134 @@ export default function LeavesPage() {
             </div>
           )}
 
+          {formWarnings.length > 0 && (
+            <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-700 text-sm">
+              <div className="font-medium mb-1">⚠️ หมายเหตุ:</div>
+              <ul className="list-disc list-inside">
+                {formWarnings.map((warning, idx) => (
+                  <li key={idx}>{warning}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-medium text-gray-900 mb-1">ประเภทการลา</label>
             <select
               value={formData.type}
-              onChange={(e) => setFormData({ ...formData, type: e.target.value as 'SICK' | 'PERSONAL' | 'VACATION' | 'OTHER' })}
+              onChange={(e) => {
+                const newType = e.target.value as LeaveType;
+                const allowedDurations = getAllowedDurationTypes(newType);
+                setFormData({ 
+                  ...formData, 
+                  type: newType,
+                  durationType: allowedDurations[0], // Reset to first allowed type
+                  halfDayPeriod: undefined,
+                  startTime: undefined,
+                  endTime: undefined,
+                });
+              }}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="PERSONAL">ลากิจ</option>
-              <option value="SICK">ลาป่วย</option>
-              <option value="VACATION">ลาพักร้อน</option>
+              <option value="SICK">ลาป่วย (คงเหลือ {getRemainingQuota('SICK')} วัน)</option>
+              <option value="PERSONAL">ลากิจ (คงเหลือ {getRemainingQuota('PERSONAL')} วัน)</option>
+              <option value="VACATION">ลาพักร้อน (คงเหลือ {getRemainingQuota('VACATION')} วัน)</option>
+              <option value="BIRTHDAY">ลาเดือนเกิด (คงเหลือ {getRemainingQuota('BIRTHDAY')} วัน)</option>
               <option value="OTHER">อื่นๆ</option>
             </select>
+            
+            {/* Show leave type info */}
+            {formData.type && (
+              <div className="mt-2 p-2 bg-gray-50 rounded text-xs text-gray-600">
+                {formData.type === 'SICK' && (
+                  <span>ลาป่วย 30 วัน/ปี - ลาได้เต็มวันหรือครึ่งวัน (ลาเกิน 3 วันต้องมีใบรับรองแพทย์)</span>
+                )}
+                {formData.type === 'PERSONAL' && (
+                  <span>ลากิจ 3 วัน/ปี - ลาได้เต็มวันเท่านั้น</span>
+                )}
+                {formData.type === 'VACATION' && (
+                  <span>ลาพักร้อน สูงสุด 6 วัน/ปี - คำนวณจากอายุงาน (เดือน/2) ลาได้เต็มวันหรือตามเวลา</span>
+                )}
+                {formData.type === 'BIRTHDAY' && (
+                  <span>ลาเดือนเกิด 1 วัน/ปี - ลาได้เฉพาะในเดือนเกิดเท่านั้น</span>
+                )}
+              </div>
+            )}
           </div>
+
+          {/* Duration Type Selection */}
+          <div>
+            <label className="block text-sm font-medium text-gray-900 mb-1">รูปแบบการลา</label>
+            <div className="flex gap-2 flex-wrap">
+              {getAllowedDurationTypes(formData.type as string).map((durationType) => (
+                <button
+                  key={durationType}
+                  type="button"
+                  onClick={() => setFormData({ 
+                    ...formData, 
+                    durationType,
+                    halfDayPeriod: durationType === LeaveDurationType.HALF_DAY ? HalfDayPeriod.MORNING : undefined,
+                    startTime: undefined,
+                    endTime: undefined,
+                  })}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                    formData.durationType === durationType
+                      ? 'bg-blue-100 border-blue-500 text-blue-700'
+                      : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  {LeaveDurationTypeLabels[durationType]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Half Day Period Selection */}
+          {formData.durationType === LeaveDurationType.HALF_DAY && (
+            <div>
+              <label className="block text-sm font-medium text-gray-900 mb-1">ช่วงเวลา</label>
+              <div className="flex gap-2">
+                {Object.values(HalfDayPeriod).map((period) => (
+                  <button
+                    key={period}
+                    type="button"
+                    onClick={() => setFormData({ ...formData, halfDayPeriod: period })}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                      formData.halfDayPeriod === period
+                        ? 'bg-blue-100 border-blue-500 text-blue-700'
+                        : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    {HalfDayPeriodLabels[period]}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Time Based Selection */}
+          {formData.durationType === LeaveDurationType.TIME_BASED && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-900 mb-1">เวลาเริ่ม</label>
+                <input
+                  type="time"
+                  value={formData.startTime || ''}
+                  onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-900 mb-1">เวลาสิ้นสุด</label>
+                <input
+                  type="time"
+                  value={formData.endTime || ''}
+                  onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <div>

@@ -1,50 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken, getTokenFromHeader } from '@/lib/auth';
+import { withAuth } from '@/lib/middleware';
 import { ApiResponse } from '@/lib/types';
-import { USE_MOCK_DB } from '@/lib/mockDb';
-import { mockNotifications } from '@/lib/mockData';
+import prisma from '@/lib/prisma';
 
 // GET /api/notifications - Get user notifications
-export async function GET(request: NextRequest) {
+export const GET = withAuth(async (request, user) => {
   try {
-    const authHeader = request.headers.get('authorization');
-    const token = getTokenFromHeader(authHeader);
-    const currentUser = token ? verifyToken(token) : null;
-
-    if (!currentUser) {
-      return NextResponse.json<ApiResponse>(
-        { success: false, error: 'กรุณาเข้าสู่ระบบ' },
-        { status: 401 }
-      );
-    }
-
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit') || '20');
     const unreadOnly = searchParams.get('unreadOnly') === 'true';
 
-    if (USE_MOCK_DB) {
-      let filteredNotifications = mockNotifications.filter(n => n.userId === currentUser.id);
-      
-      if (unreadOnly) {
-        filteredNotifications = filteredNotifications.filter(n => !n.isRead);
-      }
+    const whereClause = {
+      userId: user.id,
+      ...(unreadOnly && { isRead: false }),
+    };
 
-      const notifications = filteredNotifications.slice(0, limit);
-      const unreadCount = mockNotifications.filter(n => n.userId === currentUser.id && !n.isRead).length;
-
-      return NextResponse.json<ApiResponse>({
-        success: true,
-        data: {
-          notifications,
-          unreadCount,
+    const [notifications, unreadCount] = await Promise.all([
+      prisma.notification.findMany({
+        where: whereClause,
+        orderBy: {
+          createdAt: 'desc',
         },
-      });
-    }
+        take: limit,
+      }),
+      prisma.notification.count({
+        where: {
+          userId: user.id,
+          isRead: false,
+        },
+      }),
+    ]);
 
-    return NextResponse.json<ApiResponse>(
-      { success: false, error: 'Database not configured' },
-      { status: 500 }
-    );
+    return NextResponse.json<ApiResponse>({
+      success: true,
+      data: {
+        notifications,
+        unreadCount,
+      },
+    });
   } catch (error) {
     console.error('Get notifications error:', error);
     return NextResponse.json<ApiResponse>(
@@ -52,33 +45,42 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});
 
 // PATCH /api/notifications - Mark notifications as read
-export async function PATCH(request: NextRequest) {
+export const PATCH = withAuth(async (request, user) => {
   try {
-    const authHeader = request.headers.get('authorization');
-    const token = getTokenFromHeader(authHeader);
-    const currentUser = token ? verifyToken(token) : null;
+    const body = await request.json().catch(() => ({}));
+    const { notificationIds } = body as { notificationIds?: string[] };
 
-    if (!currentUser) {
-      return NextResponse.json<ApiResponse>(
-        { success: false, error: 'กรุณาเข้าสู่ระบบ' },
-        { status: 401 }
-      );
-    }
-
-    if (USE_MOCK_DB) {
-      return NextResponse.json<ApiResponse>({
-        success: true,
-        message: 'อ่านการแจ้งเตือนแล้ว (Mock)',
+    if (notificationIds && notificationIds.length > 0) {
+      // Mark specific notifications as read
+      await prisma.notification.updateMany({
+        where: {
+          id: { in: notificationIds },
+          userId: user.id,
+        },
+        data: {
+          isRead: true,
+        },
+      });
+    } else {
+      // Mark all notifications as read
+      await prisma.notification.updateMany({
+        where: {
+          userId: user.id,
+          isRead: false,
+        },
+        data: {
+          isRead: true,
+        },
       });
     }
 
-    return NextResponse.json<ApiResponse>(
-      { success: false, error: 'Database not configured' },
-      { status: 500 }
-    );
+    return NextResponse.json<ApiResponse>({
+      success: true,
+      message: 'อ่านการแจ้งเตือนแล้ว',
+    });
   } catch (error) {
     console.error('Mark notifications error:', error);
     return NextResponse.json<ApiResponse>(
@@ -86,4 +88,4 @@ export async function PATCH(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

@@ -10,8 +10,9 @@ import {
   mockDashboardStats,
 } from './mockData';
 
-// Enable mock mode - set to true to use mock data
-export const USE_MOCK_DB = true;
+// Enable mock mode via environment variable
+// Set USE_MOCK_DB=true in .env to use mock data instead of real database
+export const USE_MOCK_DB = process.env.USE_MOCK_DB === 'true';
 
 // In-memory stores (mutable copies)
 let users = [...mockUsers];

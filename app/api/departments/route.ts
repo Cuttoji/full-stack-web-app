@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken, getTokenFromHeader, hasPermission } from '@/lib/auth';
 import { ApiResponse, Role } from '@/lib/types';
-import { USE_MOCK_DB } from '@/lib/mockDb';
-import { mockDepartments, mockSubUnits } from '@/lib/mockData';
+import prisma from '@/lib/prisma';
 
 // GET /api/departments - Get all departments
 export async function GET(request: NextRequest) {
@@ -18,23 +17,22 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    if (USE_MOCK_DB) {
-      const departments = mockDepartments.map(dept => ({
-        ...dept,
-        subUnits: mockSubUnits.filter(s => s.departmentId === dept.id),
-        _count: { users: 6 },
-      }));
+    const departments = await prisma.department.findMany({
+      include: {
+        subUnits: true,
+        _count: {
+          select: { users: true },
+        },
+      },
+      orderBy: {
+        name: 'asc',
+      },
+    });
 
-      return NextResponse.json<ApiResponse>({
-        success: true,
-        data: departments,
-      });
-    }
-
-    return NextResponse.json<ApiResponse>(
-      { success: false, error: 'Database not configured' },
-      { status: 500 }
-    );
+    return NextResponse.json<ApiResponse>({
+      success: true,
+      data: departments,
+    });
   } catch (error) {
     console.error('Get departments error:', error);
     return NextResponse.json<ApiResponse>(
@@ -68,25 +66,35 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (USE_MOCK_DB) {
-      const newDept = {
-        id: `dept-${Date.now()}`,
-        name,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+    // Check if department with same name already exists
+    const existingDept = await prisma.department.findUnique({
+      where: { name },
+    });
 
-      return NextResponse.json<ApiResponse>({
-        success: true,
-        data: newDept,
-        message: 'สร้างแผนกสำเร็จ (Mock)',
-      });
+    if (existingDept) {
+      return NextResponse.json<ApiResponse>(
+        { success: false, error: 'แผนกนี้มีอยู่ในระบบแล้ว' },
+        { status: 400 }
+      );
     }
 
-    return NextResponse.json<ApiResponse>(
-      { success: false, error: 'Database not configured' },
-      { status: 500 }
-    );
+    const newDept = await prisma.department.create({
+      data: {
+        name,
+      },
+      include: {
+        subUnits: true,
+        _count: {
+          select: { users: true },
+        },
+      },
+    });
+
+    return NextResponse.json<ApiResponse>({
+      success: true,
+      data: newDept,
+      message: 'สร้างแผนกสำเร็จ',
+    });
   } catch (error) {
     console.error('Create department error:', error);
     return NextResponse.json<ApiResponse>(

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
-import { mockTasks } from '@/lib/mockData';
-import { TaskStatus } from '@/lib/types';
+import prisma from '@/lib/prisma';
 
 /**
  * Check if a user has pending tasks during their leave dates
@@ -35,18 +34,25 @@ export async function GET(request: NextRequest) {
     const leaveEnd = new Date(endDate);
 
     // Find all WAITING tasks assigned to this user that overlap with leave dates
-    const conflictingTasks = mockTasks.filter((task) => {
-      if (task.status !== TaskStatus.WAITING) return false;
-      
-      const taskStart = new Date(task.startDate);
-      const taskEnd = new Date(task.endDate);
-      
-      // Check if user is assigned to this task
-      const isAssigned = task.assignments?.some((a) => a.userId === userId);
-      if (!isAssigned) return false;
-      
-      // Check date overlap
-      return taskStart <= leaveEnd && taskEnd >= leaveStart;
+    const conflictingTasks = await prisma.task.findMany({
+      where: {
+        status: 'WAITING',
+        assignments: {
+          some: { userId },
+        },
+        AND: [
+          { startDate: { lte: leaveEnd } },
+          { endDate: { gte: leaveStart } },
+        ],
+      },
+      select: {
+        id: true,
+        jobNumber: true,
+        title: true,
+        startDate: true,
+        endDate: true,
+        status: true,
+      },
     });
 
     return NextResponse.json({
@@ -54,14 +60,7 @@ export async function GET(request: NextRequest) {
       data: {
         hasConflicts: conflictingTasks.length > 0,
         conflictCount: conflictingTasks.length,
-        conflictingTasks: conflictingTasks.map((task) => ({
-          id: task.id,
-          jobNumber: task.jobNumber,
-          title: task.title,
-          startDate: task.startDate,
-          endDate: task.endDate,
-          status: task.status,
-        })),
+        conflictingTasks,
       },
     });
   } catch (error) {

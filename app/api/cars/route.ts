@@ -1,62 +1,65 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken, getTokenFromHeader, hasPermission } from '@/lib/auth';
-import { ApiResponse, CreateCarRequest, Car, Role, PaginatedResponse, CarStatus } from '@/lib/types';
-import { USE_MOCK_DB } from '@/lib/mockDb';
-import { mockCars } from '@/lib/mockData';
+import { withAuth, withPermission } from '@/lib/middleware';
+import { ApiResponse, Car, PaginatedResponse, AuthUser } from '@/lib/types';
+import { createCarSchema, getCarsQuerySchema, validateRequest, validateQueryParams } from '@/lib/validations';
+import prisma from '@/lib/prisma';
 
 // GET /api/cars - Get all cars
-export async function GET(request: NextRequest) {
+export const GET = withAuth(async (request: NextRequest, currentUser: AuthUser) => {
   try {
-    const authHeader = request.headers.get('authorization');
-    const token = getTokenFromHeader(authHeader);
-    const currentUser = token ? verifyToken(token) : null;
-
-    if (!currentUser) {
+    const { searchParams } = new URL(request.url);
+    
+    // Validate query parameters
+    const queryValidation = validateQueryParams(getCarsQuerySchema, searchParams);
+    if (!queryValidation.success) {
       return NextResponse.json<ApiResponse>(
-        { success: false, error: 'กรุณาเข้าสู่ระบบ' },
-        { status: 401 }
+        { success: false, error: queryValidation.errors.join(', ') },
+        { status: 400 }
       );
     }
+    
+    const { page, limit, status, search } = queryValidation.data;
 
-    const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '20');
-    const status = searchParams.get('status') as CarStatus | null;
-    const search = searchParams.get('search') || '';
+    const whereClause: {
+      status?: typeof status;
+      OR?: Array<{ name: { contains: string; mode: 'insensitive' } } | { plateNumber: { contains: string; mode: 'insensitive' } }>;
+    } = {};
 
-    if (USE_MOCK_DB) {
-      let filteredCars = [...mockCars];
-
-      if (status) {
-        filteredCars = filteredCars.filter(c => c.status === status);
-      }
-      if (search) {
-        const searchLower = search.toLowerCase();
-        filteredCars = filteredCars.filter(c =>
-          c.name.toLowerCase().includes(searchLower) ||
-          c.plateNumber.toLowerCase().includes(searchLower)
-        );
-      }
-
-      const total = filteredCars.length;
-      const paginatedCars = filteredCars.slice((page - 1) * limit, page * limit);
-
-      return NextResponse.json<ApiResponse<PaginatedResponse<Car>>>({
-        success: true,
-        data: {
-          data: paginatedCars as Car[],
-          total,
-          page,
-          limit,
-          totalPages: Math.ceil(total / limit),
-        },
-      });
+    if (status) {
+      whereClause.status = status;
     }
 
-    return NextResponse.json<ApiResponse>(
-      { success: false, error: 'Database not configured' },
-      { status: 500 }
-    );
+    if (search) {
+      whereClause.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { plateNumber: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    const [cars, total] = await Promise.all([
+      prisma.car.findMany({
+        where: whereClause,
+        orderBy: {
+          createdAt: 'desc',
+        },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.car.count({
+        where: whereClause,
+      }),
+    ]);
+
+    return NextResponse.json<ApiResponse<PaginatedResponse<Car>>>({
+      success: true,
+      data: {
+        data: cars as Car[],
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
   } catch (error) {
     console.error('Get cars error:', error);
     return NextResponse.json<ApiResponse>(
@@ -64,70 +67,53 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});
 
 // POST /api/cars - Create new car (Head Tech/Admin only)
-export async function POST(request: NextRequest) {
+export const POST = withPermission('canManageCars', async (request: NextRequest, currentUser: AuthUser) => {
   try {
-    const authHeader = request.headers.get('authorization');
-    const token = getTokenFromHeader(authHeader);
-    const currentUser = token ? verifyToken(token) : null;
-
-    if (!currentUser || !hasPermission(currentUser.role as Role, 'canManageCars')) {
+    const body = await request.json();
+    
+    // Validate request body
+    const validation = validateRequest(createCarSchema, body);
+    if (!validation.success) {
       return NextResponse.json<ApiResponse>(
-        { success: false, error: 'คุณไม่มีสิทธิ์ในการจัดการรถ' },
-        { status: 403 }
+        { success: false, error: validation.errors.join(', ') },
+        { status: 400 }
       );
     }
+    
+    const { plateNumber, name, type, description } = validation.data;
 
-    const body: CreateCarRequest = await request.json();
-    const { plateNumber, name, type, description } = body;
+    // Check if plate number exists
+    const existingCar = await prisma.car.findUnique({
+      where: { plateNumber },
+    });
 
-    if (!plateNumber || !name) {
+    if (existingCar) {
       return NextResponse.json<ApiResponse>(
-        { success: false, error: 'กรุณากรอกทะเบียนรถและชื่อรถ' },
+        { success: false, error: 'ทะเบียนรถนี้มีในระบบแล้ว' },
         { status: 400 }
       );
     }
 
-    if (USE_MOCK_DB) {
-      // Check if plate number exists
-      const existingCar = mockCars.find(c => c.plateNumber === plateNumber);
-      if (existingCar) {
-        return NextResponse.json<ApiResponse>(
-          { success: false, error: 'ทะเบียนรถนี้มีในระบบแล้ว' },
-          { status: 400 }
-        );
-      }
-
-      const newCar = {
-        id: `car-${Date.now()}`,
+    const newCar = await prisma.car.create({
+      data: {
         plateNumber,
         licensePlate: plateNumber,
         name,
-        brand: '',
-        model: '',
-        year: new Date().getFullYear(),
         type: type || 'รถยนต์',
-        status: 'AVAILABLE' as CarStatus,
+        status: 'AVAILABLE',
         mileage: 0,
-        description: description || '',
-        lastMaintenance: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+        description: description || null,
+      },
+    });
 
-      return NextResponse.json<ApiResponse<Car>>({
-        success: true,
-        data: newCar as Car,
-        message: 'เพิ่มรถสำเร็จ (Mock)',
-      });
-    }
-
-    return NextResponse.json<ApiResponse>(
-      { success: false, error: 'Database not configured' },
-      { status: 500 }
-    );
+    return NextResponse.json<ApiResponse<Car>>({
+      success: true,
+      data: newCar as Car,
+      message: 'เพิ่มรถสำเร็จ',
+    });
   } catch (error) {
     console.error('Create car error:', error);
     return NextResponse.json<ApiResponse>(
@@ -135,4 +121,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

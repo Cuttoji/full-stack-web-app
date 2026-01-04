@@ -47,16 +47,19 @@
 - **Database**: PostgreSQL with Prisma ORM
 - **State Management**: React Context + TanStack Query
 - **Authentication**: JWT (jsonwebtoken + bcryptjs)
+- **Validation**: Zod
 - **Date Handling**: date-fns
+- **Testing**: Vitest + Playwright
 - **Icons**: Lucide React
 
 ## 📦 Installation
 
 ### Prerequisites
 - Node.js 18+
-- PostgreSQL 14+
+- PostgreSQL 14+ (or use Docker)
+- Docker (optional, for database)
 
-### Steps
+### Quick Start with Docker
 
 1. **Clone the repository**
 ```bash
@@ -64,42 +67,31 @@ git clone <repository-url>
 cd full-stack-web-app
 ```
 
-2. **Install dependencies**
-```bash
-npm install
-```
-
-3. **Setup environment variables**
+2. **Setup environment**
 ```bash
 cp .env.example .env
-```
-Edit `.env` with your database credentials:
-```env
-DATABASE_URL="postgresql://username:password@localhost:5432/task_management?schema=public"
-JWT_SECRET="your-super-secret-jwt-key"
+# Edit .env with your secrets
 ```
 
-4. **Setup database**
+3. **Start database with Docker**
 ```bash
-# Generate Prisma client
-npx prisma generate
-
-# Run migrations
-npx prisma migrate dev --name init
-
-# (Optional) Seed initial data
-npx prisma db seed
+docker-compose up -d
 ```
 
-5. **Run the development server**
+4. **Install dependencies & setup**
+```bash
+npm install
+npm run db:generate
+npm run db:migrate
+npm run db:seed  # Optional: seed initial data
+```
+
+5. **Start development server**
 ```bash
 npm run dev
 ```
 
-6. **Open in browser**
-```
-http://localhost:3000
-```
+### Manual Database Setup
 
 ## 📁 Project Structure
 
@@ -178,3 +170,38 @@ MIT License
 ## 👥 Contributors
 
 - Your Name
+
+## 📚 Documentation
+
+- [API Documentation](docs/API.md)
+- [Architecture Guide](docs/ARCHITECTURE.md)
+
+## 🧪 Testing
+
+```bash
+# Run unit tests
+npm test
+
+# Run tests in watch mode
+npm run test:watch
+
+# Run E2E tests (requires dev server)
+npm run test:e2e
+
+# Run E2E tests with UI
+npm run test:e2e:ui
+```
+
+## 🚀 Scripts
+
+| Script | Description |
+|--------|-------------|
+| `npm run dev` | Start development server |
+| `npm run build` | Build for production |
+| `npm start` | Start production server |
+| `npm test` | Run unit tests |
+| `npm run test:e2e` | Run E2E tests |
+| `npm run db:generate` | Generate Prisma client |
+| `npm run db:migrate` | Run database migrations |
+| `npm run db:studio` | Open Prisma Studio |
+| `npm run storybook` | Start Storybook |

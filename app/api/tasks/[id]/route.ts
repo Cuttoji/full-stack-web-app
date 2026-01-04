@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken, getTokenFromHeader } from '@/lib/auth';
 import { ApiResponse, UpdateTaskRequest, Task, TaskStatus } from '@/lib/types';
-import { USE_MOCK_DB } from '@/lib/mockDb';
-import { mockTasks } from '@/lib/mockData';
+import prisma from '@/lib/prisma';
 
 // GET /api/tasks/[id] - Get task by ID
 export async function GET(
@@ -22,26 +21,48 @@ export async function GET(
       );
     }
 
-    if (USE_MOCK_DB) {
-      const task = mockTasks.find(t => t.id === id);
-      
-      if (!task) {
-        return NextResponse.json<ApiResponse>(
-          { success: false, error: 'ไม่พบงาน' },
-          { status: 404 }
-        );
-      }
+    const task = await prisma.task.findUnique({
+      where: { id },
+      include: {
+        subUnit: true,
+        car: true,
+        createdBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+          },
+        },
+        assignments: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                role: true,
+                avatar: true,
+              },
+            },
+          },
+        },
+        images: true,
+        printerLogs: true,
+      },
+    });
 
-      return NextResponse.json<ApiResponse<Task>>({
-        success: true,
-        data: task as Task,
-      });
+    if (!task) {
+      return NextResponse.json<ApiResponse>(
+        { success: false, error: 'ไม่พบงาน' },
+        { status: 404 }
+      );
     }
 
-    return NextResponse.json<ApiResponse>(
-      { success: false, error: 'Database not configured' },
-      { status: 500 }
-    );
+    return NextResponse.json<ApiResponse<Task>>({
+      success: true,
+      data: task as unknown as Task,
+    });
   } catch (error) {
     console.error('Get task error:', error);
     return NextResponse.json<ApiResponse>(
@@ -71,35 +92,67 @@ export async function PATCH(
 
     const body: UpdateTaskRequest = await request.json();
 
-    if (USE_MOCK_DB) {
-      const task = mockTasks.find(t => t.id === id);
-      
-      if (!task) {
-        return NextResponse.json<ApiResponse>(
-          { success: false, error: 'ไม่พบงาน' },
-          { status: 404 }
-        );
-      }
+    const existingTask = await prisma.task.findUnique({
+      where: { id },
+    });
 
-      // Mock update - return updated task
-      const updatedTask = {
-        ...task,
-        ...body,
-        status: body.status || task.status,
-        updatedAt: new Date(),
-      };
-
-      return NextResponse.json<ApiResponse<Task>>({
-        success: true,
-        data: updatedTask as Task,
-        message: 'อัปเดตงานสำเร็จ (Mock)',
-      });
+    if (!existingTask) {
+      return NextResponse.json<ApiResponse>(
+        { success: false, error: 'ไม่พบงาน' },
+        { status: 404 }
+      );
     }
 
-    return NextResponse.json<ApiResponse>(
-      { success: false, error: 'Database not configured' },
-      { status: 500 }
-    );
+    const updatedTask = await prisma.task.update({
+      where: { id },
+      data: {
+        ...(body.title && { title: body.title }),
+        ...(body.description !== undefined && { description: body.description }),
+        ...(body.status && { status: body.status as TaskStatus }),
+        ...(body.location && { location: body.location }),
+        ...(body.customerName && { customerName: body.customerName }),
+        ...(body.customerPhone && { customerPhone: body.customerPhone }),
+        ...(body.startDate && { startDate: new Date(body.startDate) }),
+        ...(body.endDate && { endDate: new Date(body.endDate) }),
+        ...(body.startTime && { startTime: body.startTime }),
+        ...(body.endTime && { endTime: body.endTime }),
+        ...(body.notes !== undefined && { notes: body.notes }),
+        ...(body.priority !== undefined && { priority: body.priority }),
+        ...(body.status === 'DONE' && { completedAt: new Date() }),
+        updatedAt: new Date(),
+      },
+      include: {
+        subUnit: true,
+        car: true,
+        createdBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+          },
+        },
+        assignments: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                role: true,
+                avatar: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return NextResponse.json<ApiResponse<Task>>({
+      success: true,
+      data: updatedTask as unknown as Task,
+      message: 'อัปเดตงานสำเร็จ',
+    });
   } catch (error) {
     console.error('Update task error:', error);
     return NextResponse.json<ApiResponse>(
@@ -109,7 +162,7 @@ export async function PATCH(
   }
 }
 
-// DELETE /api/tasks/[id] - Soft delete task (move to trash)
+// DELETE /api/tasks/[id] - Soft delete task (move to trash) or permanent delete
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -130,42 +183,43 @@ export async function DELETE(
     const { searchParams } = new URL(request.url);
     const permanent = searchParams.get('permanent') === 'true';
 
-    if (USE_MOCK_DB) {
-      const taskIndex = mockTasks.findIndex(t => t.id === id);
-      
-      if (taskIndex === -1) {
-        return NextResponse.json<ApiResponse>(
-          { success: false, error: 'ไม่พบงาน' },
-          { status: 404 }
-        );
-      }
+    const existingTask = await prisma.task.findUnique({
+      where: { id },
+    });
 
-      if (permanent) {
-        // Permanent delete
-        return NextResponse.json<ApiResponse>({
-          success: true,
-          message: 'ลบงานถาวรสำเร็จ',
-        });
-      } else {
-        // Soft delete - move to trash
-        const deletedTask = {
-          ...mockTasks[taskIndex],
-          deletedAt: new Date(),
-          updatedAt: new Date(),
-        };
-
-        return NextResponse.json<ApiResponse<Task>>({
-          success: true,
-          data: deletedTask as Task,
-          message: 'ย้ายงานไปถังขยะสำเร็จ',
-        });
-      }
+    if (!existingTask) {
+      return NextResponse.json<ApiResponse>(
+        { success: false, error: 'ไม่พบงาน' },
+        { status: 404 }
+      );
     }
 
-    return NextResponse.json<ApiResponse>(
-      { success: false, error: 'Database not configured' },
-      { status: 500 }
-    );
+    if (permanent) {
+      // Permanent delete
+      await prisma.task.delete({
+        where: { id },
+      });
+
+      return NextResponse.json<ApiResponse>({
+        success: true,
+        message: 'ลบงานถาวรสำเร็จ',
+      });
+    } else {
+      // Soft delete - update status to CANCELLED
+      const deletedTask = await prisma.task.update({
+        where: { id },
+        data: {
+          status: 'CANCELLED',
+          updatedAt: new Date(),
+        },
+      });
+
+      return NextResponse.json<ApiResponse<Task>>({
+        success: true,
+        data: deletedTask as unknown as Task,
+        message: 'ย้ายงานไปถังขยะสำเร็จ',
+      });
+    }
   } catch (error) {
     console.error('Delete task error:', error);
     return NextResponse.json<ApiResponse>(

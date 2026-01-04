@@ -1,23 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken, getTokenFromHeader, canApproveLeaveFor } from '@/lib/auth';
-import { ApiResponse, CreateLeaveRequest, Leave, LeaveStatus, PaginatedResponse, Role, DefaultRoleScope, LeaveApprovalChain } from '@/lib/types';
-import { USE_MOCK_DB } from '@/lib/mockDb';
-import { mockLeaves, mockUsers } from '@/lib/mockData';
+import { withAuth } from '@/lib/middleware';
+import { 
+  ApiResponse, 
+  CreateLeaveRequest, 
+  Leave, 
+  LeaveStatus, 
+  LeaveType,
+  LeaveDurationType,
+  HalfDayPeriod,
+  PaginatedResponse, 
+  Role, 
+  DefaultRoleScope, 
+  LeaveApprovalChain,
+  LEAVE_TYPE_CONFIGS,
+  AuthUser,
+} from '@/lib/types';
+import prisma from '@/lib/prisma';
+import { 
+  getUserLeaveBalance, 
+  validateLeaveRequest, 
+  calculateLeaveDays,
+  isValidDurationType,
+} from '@/lib/leaveQuota';
 
 // GET /api/leaves - Get leaves (with filters)
-export async function GET(request: NextRequest) {
+export const GET = withAuth(async (request: NextRequest, currentUser: AuthUser) => {
   try {
-    const authHeader = request.headers.get('authorization');
-    const token = getTokenFromHeader(authHeader);
-    const currentUser = token ? verifyToken(token) : null;
-
-    if (!currentUser) {
-      return NextResponse.json<ApiResponse>(
-        { success: false, error: 'กรุณาเข้าสู่ระบบ' },
-        { status: 401 }
-      );
-    }
-
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '20');
@@ -25,76 +33,112 @@ export async function GET(request: NextRequest) {
     const userId = searchParams.get('userId');
     const pendingApproval = searchParams.get('pendingApproval') === 'true';
 
-    if (USE_MOCK_DB) {
-      let filteredLeaves = [...mockLeaves];
+    // Build where clause based on user permissions
+    const userScope = DefaultRoleScope[currentUser.role as Role];
+    
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const whereClause: any = {};
 
-      if (status) {
-        filteredLeaves = filteredLeaves.filter(l => l.status === status);
-      }
-      if (userId) {
-        filteredLeaves = filteredLeaves.filter(l => l.userId === userId);
-      }
-
-      // Permission Scope-based filtering
-      const userScope = DefaultRoleScope[currentUser.role as Role];
-      
-      if (userScope.type === 'SELF') {
-        // TECH, FINANCE, SALES - เห็นแค่ของตัวเอง
-        filteredLeaves = filteredLeaves.filter(l => l.userId === currentUser.id);
-      } else if (userScope.type === 'SUBUNIT') {
-        // LEADER - เห็นของทีมตัวเอง
-        filteredLeaves = filteredLeaves.filter(l => {
-          const user = mockUsers.find(u => u.id === l.userId);
-          return user?.subUnitId === currentUser.subUnitId || l.userId === currentUser.id;
-        });
-      } else if (userScope.type === 'DEPARTMENT') {
-        // HEAD_TECH, FINANCE_LEADER, SALES_LEADER - เห็นของแผนกตัวเอง
-        filteredLeaves = filteredLeaves.filter(l => {
-          const user = mockUsers.find(u => u.id === l.userId);
-          return user?.departmentId === currentUser.departmentId || l.userId === currentUser.id;
-        });
-      }
-      // ALL scope (ADMIN, CUSTOMER_SERVICE) - เห็นทั้งหมด
-
-      // Filter pending approval - แสดงเฉพาะที่รอการอนุมัติจากผู้ใช้ปัจจุบัน
-      if (pendingApproval) {
-        filteredLeaves = filteredLeaves.filter(l => {
-          if (l.status !== 'PENDING') return false;
-          const leaveUser = mockUsers.find(u => u.id === l.userId) as (typeof mockUsers[0] & { supervisorId?: string }) | undefined;
-          if (!leaveUser) return false;
-          
-          // ตรวจสอบว่าเป็น supervisor โดยตรงหรือไม่
-          if (leaveUser.supervisorId === currentUser.id) return true;
-          
-          // ตรวจสอบจาก LeaveApprovalChain
-          return canApproveLeaveFor(
-            currentUser.role as Role,
-            currentUser.id,
-            leaveUser.role as Role,
-            leaveUser.supervisorId
-          );
-        });
-      }
-
-      const total = filteredLeaves.length;
-      const paginatedLeaves = filteredLeaves.slice((page - 1) * limit, page * limit);
-
-      return NextResponse.json<ApiResponse<PaginatedResponse<Leave>>>({
-        success: true,
-        data: {
-          data: paginatedLeaves as Leave[],
-          total,
-          page,
-          limit,
-          totalPages: Math.ceil(total / limit),
-        },
-      });
+    if (status) {
+      whereClause.status = status;
     }
 
-    return NextResponse.json<ApiResponse>(
-      { success: false, error: 'Database not configured' },
-      { status: 500 }
-    );
+    if (userId) {
+      whereClause.userId = userId;
+    }
+
+    // Apply scope-based filtering
+    if (userScope.type === 'SELF') {
+      // TECH, FINANCE, SALES - can only see their own leaves
+      whereClause.userId = currentUser.id;
+    } else if (userScope.type === 'SUBUNIT' && currentUser.subUnitId) {
+      // LEADER - can see their team's leaves
+      const teamUsers = await prisma.user.findMany({
+        where: { subUnitId: currentUser.subUnitId },
+        select: { id: true },
+      });
+      const teamUserIds = teamUsers.map(u => u.id);
+      if (!userId) {
+        whereClause.userId = { in: teamUserIds };
+      }
+    } else if (userScope.type === 'DEPARTMENT' && currentUser.departmentId) {
+      // HEAD_TECH, FINANCE_LEADER, SALES_LEADER - can see their department's leaves
+      const deptUsers = await prisma.user.findMany({
+        where: { departmentId: currentUser.departmentId },
+        select: { id: true },
+      });
+      const deptUserIds = deptUsers.map(u => u.id);
+      if (!userId) {
+        whereClause.userId = { in: deptUserIds };
+      }
+    }
+    // ALL scope (ADMIN, CUSTOMER_SERVICE) - can see all leaves
+
+    // Filter pending approval - only show leaves awaiting approval from current user
+    if (pendingApproval) {
+      whereClause.status = 'PENDING';
+      whereClause.currentApproverId = currentUser.id;
+    }
+
+    const [leaves, total] = await Promise.all([
+      prisma.leave.findMany({
+        where: whereClause,
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              role: true,
+              departmentId: true,
+              subUnitId: true,
+              supervisorId: true,
+            },
+          },
+          approvedBy: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              role: true,
+            },
+          },
+          approvalChain: {
+            include: {
+              approver: {
+                select: {
+                  id: true,
+                  name: true,
+                  role: true,
+                },
+              },
+            },
+            orderBy: {
+              level: 'asc',
+            },
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.leave.count({
+        where: whereClause,
+      }),
+    ]);
+
+    return NextResponse.json<ApiResponse<PaginatedResponse<Leave>>>({
+      success: true,
+      data: {
+        data: leaves as unknown as Leave[],
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
   } catch (error) {
     console.error('Get leaves error:', error);
     return NextResponse.json<ApiResponse>(
@@ -102,91 +146,174 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});
 
 // POST /api/leaves - Create leave request
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async (request: NextRequest, currentUser: AuthUser) => {
   try {
-    const authHeader = request.headers.get('authorization');
-    const token = getTokenFromHeader(authHeader);
-    const currentUser = token ? verifyToken(token) : null;
-
-    if (!currentUser) {
-      return NextResponse.json<ApiResponse>(
-        { success: false, error: 'กรุณาเข้าสู่ระบบ' },
-        { status: 401 }
-      );
-    }
-
     const body: CreateLeaveRequest = await request.json();
-    const { type, startDate, endDate, totalDays, reason } = body;
+    const { 
+      type, 
+      startDate, 
+      endDate, 
+      reason,
+      durationType = LeaveDurationType.FULL_DAY,
+      halfDayPeriod,
+      startTime,
+      endTime,
+    } = body;
 
-    if (!type || !startDate || !endDate || !totalDays) {
+    if (!type || !startDate || !endDate) {
       return NextResponse.json<ApiResponse>(
         { success: false, error: 'กรุณากรอกข้อมูลให้ครบถ้วน' },
         { status: 400 }
       );
     }
 
-    if (USE_MOCK_DB) {
-      // Check quota
-      const user = mockUsers.find(u => u.id === currentUser.id);
-      if (user) {
-        const remainingQuota = user.leaveQuota - user.leaveUsed;
-        if (totalDays > remainingQuota) {
-          return NextResponse.json<ApiResponse>(
-            { success: false, error: `โควตาลาไม่เพียงพอ (คงเหลือ ${remainingQuota} วัน)` },
-            { status: 400 }
-          );
-        }
-      }
+    // Calculate leave days
+    const calculatedTotalDays = body.totalDays || calculateLeaveDays(
+      new Date(startDate),
+      new Date(endDate),
+      durationType as LeaveDurationType,
+      startTime,
+      endTime
+    );
 
-      // หาผู้อนุมัติคนแรกจาก supervisorId หรือ LeaveApprovalChain
-      let currentApproverId: string | null = null;
-      const userWithSupervisor = user as (typeof user & { supervisorId?: string }) | undefined;
-      if (userWithSupervisor?.supervisorId) {
-        currentApproverId = userWithSupervisor.supervisorId;
-      } else {
-        // หาจาก LeaveApprovalChain
-        const approverRoles = LeaveApprovalChain[currentUser.role as Role];
-        if (approverRoles && approverRoles.length > 0) {
-          const approver = mockUsers.find(u => approverRoles.includes(u.role as Role));
-          currentApproverId = approver?.id || null;
-        }
-      }
+    // Get user details
+    const user = await prisma.user.findUnique({
+      where: { id: currentUser.id },
+    });
 
-      const newLeave = {
-        id: `leave-${Date.now()}`,
-        userId: currentUser.id,
-        user: user || null,
-        type,
-        status: 'PENDING' as LeaveStatus,
-        startDate: new Date(startDate),
-        endDate: new Date(endDate),
-        totalDays,
-        reason: reason || '',
-        currentApproverId,
-        approvalChain: [],
-        approvalLevel: 1,
-        approvedById: null,
-        approver: null,
-        approverNote: null,
-        approvedAt: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-
-      return NextResponse.json<ApiResponse<Leave>>({
-        success: true,
-        data: newLeave as unknown as Leave,
-        message: 'ส่งคำขอลาสำเร็จ',
-      });
+    if (!user) {
+      return NextResponse.json<ApiResponse>(
+        { success: false, error: 'ไม่พบข้อมูลผู้ใช้' },
+        { status: 404 }
+      );
     }
 
-    return NextResponse.json<ApiResponse>(
-      { success: false, error: 'Database not configured' },
-      { status: 500 }
+    // Validate duration type for leave type
+    const leaveTypeKey = type as LeaveType;
+    if (!isValidDurationType(leaveTypeKey, durationType as LeaveDurationType)) {
+      const config = LEAVE_TYPE_CONFIGS[leaveTypeKey];
+      const allowedTypes = config.allowedDurationTypes.map(t => {
+        switch(t) {
+          case LeaveDurationType.FULL_DAY: return 'เต็มวัน';
+          case LeaveDurationType.HALF_DAY: return 'ครึ่งวัน';
+          case LeaveDurationType.TIME_BASED: return 'ตามเวลา';
+        }
+      }).join(', ');
+      return NextResponse.json<ApiResponse>(
+        { success: false, error: `${config.label}สามารถลาได้แบบ ${allowedTypes} เท่านั้น` },
+        { status: 400 }
+      );
+    }
+
+    // Get user's existing leaves for balance calculation
+    const userLeaves = await prisma.leave.findMany({
+      where: {
+        userId: currentUser.id,
+        status: { in: ['APPROVED', 'PENDING'] },
+      },
+    });
+
+    // Calculate leave balance
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const userAny = user as any;
+    const balance = getUserLeaveBalance(
+      currentUser.id,
+      userLeaves.map(l => ({
+        ...l,
+        approvedById: l.approvedById ?? undefined,
+        approvedAt: l.approvedAt ?? undefined,
+      })) as Leave[],
+      userAny.employmentStartDate || new Date(new Date().setFullYear(new Date().getFullYear() - 1)),
+      userAny.birthMonth ?? undefined,
+      new Date(startDate).getFullYear()
     );
+
+    // Validate leave request
+    const validation = validateLeaveRequest(
+      leaveTypeKey,
+      new Date(startDate),
+      new Date(endDate),
+      calculatedTotalDays,
+      durationType as LeaveDurationType,
+      balance,
+      halfDayPeriod as HalfDayPeriod | undefined
+    );
+
+    if (!validation.isValid) {
+      return NextResponse.json<ApiResponse>(
+        { success: false, error: validation.errors.join(', ') },
+        { status: 400 }
+      );
+    }
+
+    // Find first approver from supervisorId or LeaveApprovalChain
+    let currentApproverId: string | null = null;
+    if (user.supervisorId) {
+      currentApproverId = user.supervisorId;
+    } else {
+      // Find from LeaveApprovalChain
+      const approverRoles = LeaveApprovalChain[currentUser.role as Role];
+      if (approverRoles && approverRoles.length > 0) {
+        const approver = await prisma.user.findFirst({
+          where: {
+            role: { in: approverRoles },
+            isActive: true,
+          },
+        });
+        currentApproverId = approver?.id || null;
+      }
+    }
+
+    // Create leave request
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const leaveData: any = {
+      userId: currentUser.id,
+      type,
+      status: 'PENDING',
+      startDate: new Date(startDate),
+      endDate: new Date(endDate),
+      totalDays: calculatedTotalDays,
+      reason: reason || null,
+      durationType,
+      halfDayPeriod: halfDayPeriod || null,
+      startTime: startTime || null,
+      endTime: endTime || null,
+      currentApproverId,
+      approvalLevel: 1,
+    };
+    
+    const newLeave = await prisma.leave.create({
+      data: leaveData,
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+          },
+        },
+        approvalChain: true,
+      },
+    });
+
+    // Return with warnings if any
+    const responseData: { leave: typeof newLeave; warnings?: string[] } = {
+      leave: newLeave,
+    };
+    
+    if (validation.warnings.length > 0) {
+      responseData.warnings = validation.warnings;
+    }
+
+    return NextResponse.json<ApiResponse<typeof responseData>>({
+      success: true,
+      data: responseData,
+      message: 'ส่งคำขอลาสำเร็จ',
+    });
   } catch (error) {
     console.error('Create leave error:', error);
     return NextResponse.json<ApiResponse>(
@@ -194,4 +321,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

@@ -41,7 +41,19 @@ enum LeaveType {
   SICK        // ลาป่วย
   PERSONAL    // ลากิจ
   VACATION    // ลาพักร้อน
+  BIRTHDAY    // ลาเดือนเกิด
   OTHER       // อื่นๆ
+}
+
+enum LeaveDurationType {
+  FULL_DAY    // เต็มวัน
+  HALF_DAY    // ครึ่งวัน
+  TIME_BASED  // ตามเวลา
+}
+
+enum HalfDayPeriod {
+  MORNING     // ช่วงเช้า
+  AFTERNOON   // ช่วงบ่าย
 }
 
 enum SubUnitType {
@@ -100,6 +112,8 @@ model SubUnit {
   users      User[]
   tasks      Task[]
 
+  @@index([departmentId])
+  @@index([type])
   @@map("sub_units")
 }
 
@@ -116,11 +130,19 @@ model User {
   departmentId  String?
   subUnitId     String?  // สำหรับ Tech ในแผนกช่าง
   supervisorId  String?  // ผู้บังคับบัญชาโดยตรง (สำหรับ Hierarchical Approval)
-  leaveQuota    Int      @default(15) // โควตาลาประจำปี (วัน)
-  leaveUsed     Int      @default(0)  // วันลาที่ใช้ไปแล้ว
+  leaveQuota    Int      @default(15) // โควตาลาประจำปี (วัน) - Legacy
+  leaveUsed     Int      @default(0)  // วันลาที่ใช้ไปแล้ว - Legacy
+  birthMonth    Int?     // เดือนเกิด (1-12)
+  birthDate     DateTime? // วันเกิด
+  employmentStartDate DateTime? // วันเข้างาน
   isActive      Boolean  @default(true)
   permissions   Json?    // Custom permissions (UserPermissions)
   permissionScope Json?  // Permission scope (PermissionScope)
+  
+  // Password Reset
+  resetToken       String?   // Hashed reset token
+  resetTokenExpiry DateTime? // Token expiry time
+  
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -166,6 +188,7 @@ model Car {
 
   tasks Task[]
 
+  @@index([status])
   @@map("cars")
 }
 
@@ -213,6 +236,9 @@ model Task {
   @@index([startDate, endDate])
   @@index([subUnitId])
   @@index([createdById])
+  @@index([scheduledDate])
+  @@index([carId])
+  @@index([priority, status])
   @@map("tasks")
 }
 
@@ -230,6 +256,7 @@ model TaskAssignment {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([taskId, userId])
+  @@index([userId])
   @@map("task_assignments")
 }
 
@@ -287,6 +314,12 @@ model Leave {
   totalDays       Float       // จำนวนวันลา (รองรับ 0.5 วัน)
   reason          String?     // เหตุผลการลา
   
+  // Leave Duration Options
+  durationType    LeaveDurationType @default(FULL_DAY) // ประเภทการลา
+  halfDayPeriod   HalfDayPeriod? // ช่วงครึ่งวัน (เช้า/บ่าย)
+  startTime       String?     // เวลาเริ่ม (สำหรับ TIME_BASED)
+  endTime         String?     // เวลาสิ้นสุด (สำหรับ TIME_BASED)
+  
   // Hierarchical Approval
   currentApproverId String?   // ผู้ที่ต้องอนุมัติปัจจุบัน
   approvalLevel   Int         @default(1) // ระดับการอนุมัติปัจจุบัน
@@ -308,7 +341,26 @@ model Leave {
   @@index([status])
   @@index([currentApproverId])
   @@index([startDate, endDate])
+  @@index([userId, status])
+  @@index([type])
   @@map("leaves")
+}
+
+// ยอดโควตาการลาต่อปี (เก็บประวัติการใช้โควตาแต่ละประเภท)
+model LeaveQuota {
+  id          String    @id @default(cuid())
+  userId      String
+  year        Int       // ปี พ.ศ. หรือ ค.ศ.
+  leaveType   LeaveType
+  totalQuota  Float     // โควตาทั้งหมด
+  usedDays    Float     @default(0) // ใช้ไปแล้ว
+  pendingDays Float     @default(0) // รออนุมัติ
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([userId, year, leaveType])
+  @@index([userId, year])
+  @@map("leave_quotas")
 }
 
 // ประวัติการอนุมัติตามลำดับชั้น
@@ -346,6 +398,8 @@ model Notification {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, isRead])
+  @@index([userId, createdAt])
+  @@index([type])
   @@map("notifications")
 }
 

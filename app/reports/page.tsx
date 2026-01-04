@@ -118,33 +118,32 @@ export default function ReportsPage() {
     try {
       setIsApproving(true);
       
-      // In a real app, you would send this to an API
       const approvalData = {
-        taskId: selectedTask.id,
         checklist: checklist,
         notes: additionalNotes,
-        approvedAt: new Date().toISOString(),
       };
 
-      // Simulate API call
-      console.log('Approving task:', approvalData);
-      
-      // TODO: Send to API
-      // const response = await fetch(`/api/tasks/${selectedTask.id}/approve`, {
-      //   method: 'POST',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //     Authorization: `Bearer ${token}`,
-      //   },
-      //   body: JSON.stringify(approvalData),
-      // });
+      const response = await fetch(`/api/tasks/${selectedTask.id}/approve`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(approvalData),
+      });
 
-      alert('ตรวจสอบและอนุมัติงานเรียบร้อยแล้ว');
-      setIsChecklistModalOpen(false);
-      fetchCompletedTasks();
+      const data = await response.json();
+      
+      if (data.success) {
+        alert('ตรวจสอบและอนุมัติงานเรียบร้อยแล้ว');
+        setIsChecklistModalOpen(false);
+        fetchCompletedTasks();
+      } else {
+        alert(data.error || 'เกิดข้อผิดพลาด');
+      }
     } catch (error) {
       console.error('Failed to approve task:', error);
-      alert('เกิดข้อผิดพลาด');
+      alert('เกิดข้อผิดพลาดในการเชื่อมต่อ');
     } finally {
       setIsApproving(false);
     }

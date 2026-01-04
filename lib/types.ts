@@ -29,10 +29,101 @@ export enum LeaveStatus {
 }
 
 export enum LeaveType {
-  SICK = 'SICK',
-  PERSONAL = 'PERSONAL',
-  VACATION = 'VACATION',
+  SICK = 'SICK',           // ลาป่วย
+  PERSONAL = 'PERSONAL',   // ลากิจ
+  VACATION = 'VACATION',   // ลาพักร้อน
+  BIRTHDAY = 'BIRTHDAY',   // ลาเดือนเกิด
   OTHER = 'OTHER',
+}
+
+// ==================== LEAVE QUOTA SYSTEM ====================
+
+// ประเภทการลา (เต็มวัน, ครึ่งวัน, ตามเวลา)
+export enum LeaveDurationType {
+  FULL_DAY = 'FULL_DAY',       // เต็มวัน
+  HALF_DAY = 'HALF_DAY',       // ครึ่งวัน (เช้า/บ่าย)
+  TIME_BASED = 'TIME_BASED',   // ตามเวลา (ชั่วโมง)
+}
+
+// ช่วงครึ่งวัน
+export enum HalfDayPeriod {
+  MORNING = 'MORNING',   // เช้า (08:00-12:00)
+  AFTERNOON = 'AFTERNOON', // บ่าย (13:00-17:00)
+}
+
+// กฎการลาแต่ละประเภท
+export interface LeaveTypeConfig {
+  type: LeaveType;
+  label: string;
+  quotaPerYear: number;           // โควตาต่อปี (วัน)
+  allowedDurationTypes: LeaveDurationType[]; // รูปแบบการลาที่อนุญาต
+  requiresDocumentation?: boolean; // ต้องแนบเอกสารหรือไม่
+  minDaysNotice?: number;         // ต้องลาล่วงหน้ากี่วัน
+  maxConsecutiveDays?: number;    // ลาติดต่อกันได้สูงสุดกี่วัน
+  isBirthdayMonth?: boolean;      // เฉพาะเดือนเกิด
+  calculatedByMonthsEmployed?: boolean; // คำนวณตามอายุงาน
+}
+
+// โควตาการลาตามประเภท
+export const LEAVE_TYPE_CONFIGS: Record<LeaveType, LeaveTypeConfig> = {
+  [LeaveType.SICK]: {
+    type: LeaveType.SICK,
+    label: 'ลาป่วย',
+    quotaPerYear: 30,
+    allowedDurationTypes: [LeaveDurationType.FULL_DAY, LeaveDurationType.HALF_DAY],
+    requiresDocumentation: false, // ลาเกิน 3 วันต้องมีใบรับรองแพทย์
+    maxConsecutiveDays: 30,
+  },
+  [LeaveType.PERSONAL]: {
+    type: LeaveType.PERSONAL,
+    label: 'ลากิจ',
+    quotaPerYear: 3,
+    allowedDurationTypes: [LeaveDurationType.FULL_DAY], // เต็มวันเท่านั้น
+    minDaysNotice: 1, // ต้องลาล่วงหน้า 1 วัน (ยกเว้นกรณีฉุกเฉิน)
+    maxConsecutiveDays: 3,
+  },
+  [LeaveType.VACATION]: {
+    type: LeaveType.VACATION,
+    label: 'ลาพักร้อน',
+    quotaPerYear: 6, // สูงสุด 6 วัน - คำนวณจาก เดือนเข้างาน / 2
+    allowedDurationTypes: [LeaveDurationType.FULL_DAY, LeaveDurationType.TIME_BASED],
+    calculatedByMonthsEmployed: true, // โควตา = เดือนที่ทำงาน / 2
+    minDaysNotice: 3, // ต้องลาล่วงหน้า 3 วัน
+    maxConsecutiveDays: 6,
+  },
+  [LeaveType.BIRTHDAY]: {
+    type: LeaveType.BIRTHDAY,
+    label: 'ลาเดือนเกิด',
+    quotaPerYear: 1,
+    allowedDurationTypes: [LeaveDurationType.FULL_DAY], // เต็มวันเท่านั้น
+    isBirthdayMonth: true, // ลาได้เฉพาะในเดือนเกิด
+    maxConsecutiveDays: 1,
+  },
+  [LeaveType.OTHER]: {
+    type: LeaveType.OTHER,
+    label: 'อื่นๆ',
+    quotaPerYear: 0, // ไม่มีโควตา - ขึ้นอยู่กับการอนุมัติ
+    allowedDurationTypes: [LeaveDurationType.FULL_DAY, LeaveDurationType.HALF_DAY, LeaveDurationType.TIME_BASED],
+    requiresDocumentation: true,
+  },
+};
+
+// โควตาการลาของพนักงาน (ต่อประเภท)
+export interface UserLeaveQuota {
+  type: LeaveType;
+  totalQuota: number;    // โควตาทั้งหมด
+  used: number;          // ใช้ไปแล้ว
+  remaining: number;     // คงเหลือ
+  pending: number;       // รออนุมัติ
+}
+
+// สรุปโควตาการลาทั้งหมด
+export interface UserLeaveBalance {
+  userId: string;
+  year: number;
+  employmentStartDate?: Date; // วันเข้างาน (สำหรับคำนวณวันพักร้อน)
+  birthMonth?: number;        // เดือนเกิด (1-12)
+  quotas: UserLeaveQuota[];
 }
 
 export enum SubUnitType {
@@ -86,6 +177,9 @@ export interface User {
   supervisorId?: string;        // ผู้บังคับบัญชาโดยตรง (สำหรับ Hierarchical Approval)
   leaveQuota: number;
   leaveUsed: number;
+  birthMonth?: number;          // เดือนเกิด (1-12)
+  birthDate?: Date;             // วันเกิด
+  employmentStartDate?: Date;   // วันเข้างาน
   isActive: boolean;
   permissions?: UserPermissions;
   permissionScope?: PermissionScope; // Scope ของสิทธิ์
@@ -404,6 +498,12 @@ export interface Leave {
   totalDays: number;
   reason?: string;
   
+  // Leave Duration Options
+  durationType?: LeaveDurationType; // ประเภทการลา (เต็มวัน/ครึ่งวัน/ตามเวลา)
+  halfDayPeriod?: HalfDayPeriod;    // ช่วงครึ่งวัน (เช้า/บ่าย)
+  startTime?: string;               // เวลาเริ่ม (สำหรับ TIME_BASED)
+  endTime?: string;                 // เวลาสิ้นสุด (สำหรับ TIME_BASED)
+  
   // Hierarchical Approval
   currentApproverId?: string;       // ผู้ที่ต้องอนุมัติปัจจุบัน
   approvalChain?: LeaveApproval[];  // ประวัติการอนุมัติตามลำดับชั้น
@@ -563,11 +663,15 @@ export interface CreatePrinterLogRequest {
 
 // Leave Types
 export interface CreateLeaveRequest {
-  type: LeaveType | 'SICK' | 'PERSONAL' | 'VACATION' | 'OTHER';
+  type: LeaveType | 'SICK' | 'PERSONAL' | 'VACATION' | 'BIRTHDAY' | 'OTHER';
   startDate: string;
   endDate: string;
   totalDays?: number;
   reason?: string;
+  durationType?: LeaveDurationType; // ประเภทการลา (เต็มวัน/ครึ่งวัน/ตามเวลา)
+  halfDayPeriod?: HalfDayPeriod;    // ช่วงครึ่งวัน (เช้า/บ่าย)
+  startTime?: string;               // เวลาเริ่ม (สำหรับ TIME_BASED)
+  endTime?: string;                 // เวลาสิ้นสุด (สำหรับ TIME_BASED)
 }
 
 export interface ApproveLeaveRequest {
@@ -719,7 +823,19 @@ export const LeaveTypeLabels: Record<LeaveType, string> = {
   [LeaveType.SICK]: 'ลาป่วย',
   [LeaveType.PERSONAL]: 'ลากิจ',
   [LeaveType.VACATION]: 'ลาพักร้อน',
+  [LeaveType.BIRTHDAY]: 'ลาเดือนเกิด',
   [LeaveType.OTHER]: 'อื่นๆ',
+};
+
+export const LeaveDurationTypeLabels: Record<LeaveDurationType, string> = {
+  [LeaveDurationType.FULL_DAY]: 'เต็มวัน',
+  [LeaveDurationType.HALF_DAY]: 'ครึ่งวัน',
+  [LeaveDurationType.TIME_BASED]: 'ตามเวลา',
+};
+
+export const HalfDayPeriodLabels: Record<HalfDayPeriod, string> = {
+  [HalfDayPeriod.MORNING]: 'ช่วงเช้า (08:00-12:00)',
+  [HalfDayPeriod.AFTERNOON]: 'ช่วงบ่าย (13:00-17:00)',
 };
 
 export const LeaveStatusLabels: Record<LeaveStatus, string> = {
