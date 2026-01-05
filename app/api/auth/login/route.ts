@@ -71,6 +71,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Parse permissions from JSON
+    const userPermissions = user.permissions as Record<string, boolean> | null;
+
     const token = generateToken({
       id: user.id,
       employeeId: user.employeeId,
@@ -79,6 +82,7 @@ export async function POST(request: NextRequest) {
       role: user.role as Role,
       departmentId: user.departmentId || undefined,
       subUnitId: user.subUnitId || undefined,
+      permissions: userPermissions || undefined,
     });
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars

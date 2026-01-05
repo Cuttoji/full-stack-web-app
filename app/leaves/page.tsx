@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useAuth, useRoleAccess } from '@/contexts/AuthContext';
 import { Button, Card, Modal } from '@/components/ui';
@@ -15,6 +15,14 @@ import {
   UserLeaveBalance,
 } from '@/lib/types';
 import { LEAVE_STATUS_LABELS, LEAVE_TYPE_LABELS, LeaveDurationTypeLabels, HalfDayPeriodLabels } from '@/lib/types';
+import {
+  calculateLeaveMinutes,
+  calculateLunchOverlap,
+  formatMinutesToFullDisplay,
+  generateTimeOptions,
+  validateLeaveTime,
+  MIN_LEAVE_MINUTES,
+} from '@/lib/leaveCalculation';
 import {
   Plus,
   Calendar,
@@ -41,7 +49,7 @@ interface LeaveQuotaSummary {
 
 export default function LeavesPage() {
   const { user } = useAuth();
-  const { isLeader, isAdmin, isHeadTech } = useRoleAccess();
+  const { isLeader, isAdmin, isHeadTech, isFinanceLeader, isSalesLeader } = useRoleAccess();
   
   const [leaves, setLeaves] = useState<Leave[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -152,6 +160,47 @@ export default function LeavesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter, viewMode]);
 
+  // Calculate leave minutes for live preview
+  const calculatedMinutes = useMemo(() => {
+    if (!formData.startDate || !formData.endDate) return 0;
+    
+    const isFullDay = formData.durationType === LeaveDurationType.FULL_DAY;
+    return calculateLeaveMinutes(
+      formData.startDate,
+      formData.endDate,
+      isFullDay,
+      formData.startTime,
+      formData.endTime
+    );
+  }, [formData.startDate, formData.endDate, formData.durationType, formData.startTime, formData.endTime]);
+
+  // Generate time options for dropdowns
+  const startTimeOptions = useMemo(() => generateTimeOptions(), []);
+  const endTimeOptions = useMemo(() => 
+    generateTimeOptions(formData.startTime), 
+    [formData.startTime]
+  );
+
+  // Calculate lunch overlap for warning display
+  const lunchOverlapMinutes = useMemo(() => {
+    if (formData.durationType !== LeaveDurationType.TIME_BASED || !formData.startTime || !formData.endTime) {
+      return 0;
+    }
+    const [startHour, startMinute] = formData.startTime.split(':').map(Number);
+    const [endHour, endMinute] = formData.endTime.split(':').map(Number);
+    return calculateLunchOverlap(startHour, startMinute, endHour, endMinute);
+  }, [formData.durationType, formData.startTime, formData.endTime]);
+
+  // Calculate raw minutes (before lunch deduction) for display
+  const rawMinutes = useMemo(() => {
+    if (formData.durationType !== LeaveDurationType.TIME_BASED || !formData.startTime || !formData.endTime) {
+      return 0;
+    }
+    const [startHour, startMinute] = formData.startTime.split(':').map(Number);
+    const [endHour, endMinute] = formData.endTime.split(':').map(Number);
+    return (endHour * 60 + endMinute) - (startHour * 60 + startMinute);
+  }, [formData.durationType, formData.startTime, formData.endTime]);
+
   const handleCreateLeave = async () => {
     setFormError('');
     setFormWarnings([]);
@@ -173,12 +222,23 @@ export default function LeavesPage() {
       return;
     }
 
-    // Check quota
+    // Validate TIME_BASED leave using new utility
+    if (formData.durationType === LeaveDurationType.TIME_BASED) {
+      if (!formData.startTime || !formData.endTime) {
+        setFormError('กรุณาระบุเวลาเริ่มและเวลาสิ้นสุด');
+        return;
+      }
+      
+      const validation = validateLeaveTime(formData.startTime, formData.endTime);
+      if (!validation.valid) {
+        setFormError(validation.error || 'เวลาไม่ถูกต้อง');
+        return;
+      }
+    }
+
+    // Check quota using calculated minutes
     const remaining = getRemainingQuota(formData.type as string);
-    const diffDays = Math.ceil(
-      (new Date(formData.endDate).getTime() - new Date(formData.startDate).getTime()) / (1000 * 60 * 60 * 24)
-    ) + 1;
-    const requestDays = formData.durationType === LeaveDurationType.HALF_DAY ? diffDays * 0.5 : diffDays;
+    const requestDays = calculatedMinutes / 480; // 480 minutes = 1 day
     
     if (requestDays > remaining) {
       setFormError(`โควตา${LEAVE_TYPE_LABELS[formData.type as LeaveType]}ไม่เพียงพอ (คงเหลือ ${remaining} วัน)`);
@@ -328,7 +388,7 @@ export default function LeavesPage() {
     }
   };
 
-  const canApprove = isLeader || isAdmin || isHeadTech;
+  const canApprove = isLeader || isAdmin || isHeadTech || isFinanceLeader || isSalesLeader;
 
   return (
     <DashboardLayout>
@@ -664,24 +724,50 @@ export default function LeavesPage() {
 
           {/* Time Based Selection */}
           {formData.durationType === LeaveDurationType.TIME_BASED && (
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-900 mb-1">เวลาเริ่ม</label>
-                <input
-                  type="time"
-                  value={formData.startTime || ''}
-                  onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 mb-1">เวลาเริ่ม</label>
+                  <select
+                    value={formData.startTime || ''}
+                    onChange={(e) => setFormData({ ...formData, startTime: e.target.value, endTime: '' })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">เลือกเวลา</option>
+                    {startTimeOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value} disabled={opt.disabled}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 mb-1">เวลาสิ้นสุด</label>
+                  <select
+                    value={formData.endTime || ''}
+                    onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    disabled={!formData.startTime}
+                  >
+                    <option value="">เลือกเวลา</option>
+                    {endTimeOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value} disabled={opt.disabled}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-900 mb-1">เวลาสิ้นสุด</label>
-                <input
-                  type="time"
-                  value={formData.endTime || ''}
-                  onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm">
+                <div className="flex items-center gap-2 text-blue-700 mb-2">
+                  <Info className="w-4 h-4" />
+                  <span className="font-medium">ข้อมูลการลา</span>
+                </div>
+                <ul className="text-blue-600 text-xs space-y-1 ml-6">
+                  <li>• เวลาทำงาน: 08:00 - 17:30 น.</li>
+                  <li>• พักเที่ยง: 12:00 - 13:00 น. (หักออกอัตโนมัติ)</li>
+                  <li>• ขั้นต่ำ: {MIN_LEAVE_MINUTES} นาที</li>
+                </ul>
               </div>
             </div>
           )}
@@ -706,6 +792,64 @@ export default function LeavesPage() {
               />
             </div>
           </div>
+
+          {/* Live Preview - แสดงเวลาที่คำนวณได้ */}
+          {formData.startDate && formData.endDate && (
+            <div className={`p-4 border rounded-lg ${
+              calculatedMinutes > 0 
+                ? 'bg-green-50 border-green-200' 
+                : 'bg-red-50 border-red-200'
+            }`}>
+              <div className={`flex items-center gap-2 font-medium mb-2 ${
+                calculatedMinutes > 0 ? 'text-green-700' : 'text-red-700'
+              }`}>
+                <Clock className="w-5 h-5" />
+                <span>สรุปการลาครั้งนี้</span>
+              </div>
+              
+              {calculatedMinutes > 0 ? (
+                <div className="text-green-600 space-y-2">
+                  <p className="text-lg font-bold">
+                    คุณกำลังขอ{LEAVE_TYPE_LABELS[formData.type as LeaveType]}เป็นเวลา {formatMinutesToFullDisplay(calculatedMinutes)}
+                  </p>
+                  
+                  {/* แสดงรายละเอียดการคำนวณสำหรับ TIME_BASED */}
+                  {formData.durationType === LeaveDurationType.TIME_BASED && formData.startTime && formData.endTime && (
+                    <div className="text-sm space-y-1 pt-2 border-t border-green-200">
+                      <p className="font-medium">📊 รายละเอียดการคำนวณ:</p>
+                      <p>• เวลา: {formData.startTime} - {formData.endTime} ({rawMinutes} นาที)</p>
+                      {lunchOverlapMinutes > 0 && (
+                        <p>• หักพักเที่ยง: -{lunchOverlapMinutes} นาที</p>
+                      )}
+                      <p className="font-semibold">• นาทีที่ลาจริง: {calculatedMinutes} นาที</p>
+                    </div>
+                  )}
+                  
+                  <p className="text-xs text-green-500">
+                    (คิดเป็น {(calculatedMinutes / 480).toFixed(2)} วันทำงาน)
+                  </p>
+                </div>
+              ) : (
+                <div className="text-red-600 space-y-1">
+                  <p className="font-bold">⚠️ ไม่สามารถลาได้</p>
+                  {formData.durationType === LeaveDurationType.TIME_BASED && rawMinutes > 0 && rawMinutes <= lunchOverlapMinutes && (
+                    <p className="text-sm">ช่วงเวลาที่เลือกอยู่ในช่วงพักเที่ยง (12:00-13:00) ทั้งหมด</p>
+                  )}
+                  {formData.durationType === LeaveDurationType.TIME_BASED && rawMinutes < MIN_LEAVE_MINUTES && (
+                    <p className="text-sm">ระยะเวลาการลาขั้นต่ำคือ {MIN_LEAVE_MINUTES} นาที</p>
+                  )}
+                </div>
+              )}
+              
+              {/* แสดงคำเตือนเมื่อมีการหักพักเที่ยง */}
+              {lunchOverlapMinutes > 0 && calculatedMinutes > 0 && (
+                <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-700 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                  <span>ระบบได้หักช่วงพักเที่ยง ({lunchOverlapMinutes} นาที) ออกจากการลาให้คุณแล้ว</span>
+                </div>
+              )}
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-900 mb-1">เหตุผล</label>

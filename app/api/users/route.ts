@@ -61,7 +61,22 @@ export const GET = withAuth(async (request, currentUser) => {
         where,
         skip: (page - 1) * limit,
         take: limit,
-        include: {
+        select: {
+          id: true,
+          employeeId: true,
+          email: true,
+          name: true,
+          phone: true,
+          avatar: true,
+          role: true,
+          departmentId: true,
+          subUnitId: true,
+          leaveQuota: true,
+          leaveUsed: true,
+          isActive: true,
+          permissions: true,
+          createdAt: true,
+          updatedAt: true,
           department: true,
           subUnit: true,
         },
@@ -70,13 +85,10 @@ export const GET = withAuth(async (request, currentUser) => {
       prisma.user.count({ where }),
     ]);
 
-    // Remove password from response
-    const usersWithoutPassword = users.map(({ password: _pwd, ...user }) => user);
-
     return NextResponse.json<ApiResponse<PaginatedResponse<User>>>({
       success: true,
       data: {
-        data: usersWithoutPassword as User[],
+        data: users as User[],
         total,
         page,
         limit,

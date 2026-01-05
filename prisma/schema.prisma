@@ -218,6 +218,8 @@ model Task {
   notes        String?    // หมายเหตุ
   priority     Int        @default(1) // 1=Low, 2=Medium, 3=High
   completedAt  DateTime?  // เวลาที่จบงาน
+  deletedAt    DateTime?  // Soft delete - ถังขยะ
+  deletedById  String?    // ผู้ลบ
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
@@ -312,6 +314,7 @@ model Leave {
   startDate       DateTime
   endDate         DateTime
   totalDays       Float       // จำนวนวันลา (รองรับ 0.5 วัน)
+  minutesUsed     Int?        // นาทีที่ใช้จริง (หักพักเที่ยงแล้ว) สำหรับคำนวณโควต้า
   reason          String?     // เหตุผลการลา
   
   // Leave Duration Options

@@ -1,60 +1,46 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useRoleAccess } from '@/contexts/AuthContext';
 import { Button, Card } from '@/components/ui';
 import { TaskCard } from '@/components/tasks/TaskCard';
-import { Task, TaskStatus } from '@/lib/types';
+import { Task } from '@/lib/types';
 import { Trash2, ArrowLeft, AlertTriangle, Trash } from 'lucide-react';
 import Link from 'next/link';
 
-// Mock deleted tasks for demo
-const mockDeletedTasks: Task[] = [
-  {
-    id: 'deleted-1',
-    jobNumber: 'JOB-DEL-001',
-    title: 'งานซ่อมเครื่องพิมพ์ (ถูกลบ)',
-    description: 'งานที่ถูกย้ายไปถังขยะ',
-    location: 'อาคาร A',
-    customerName: 'บริษัท ABC',
-    scheduledDate: new Date(),
-    startDate: new Date(),
-    endDate: new Date(),
-    status: TaskStatus.CANCELLED,
-    isLoop: false,
-    priority: 1,
-    createdById: 'user-1',
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    deletedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), // 5 days ago
-    assignments: [],
-  },
-  {
-    id: 'deleted-2',
-    jobNumber: 'JOB-DEL-002',
-    title: 'ติดตั้งระบบ IT (ถูกลบ)',
-    description: 'งานที่ถูกย้ายไปถังขยะ',
-    location: 'อาคาร B',
-    customerName: 'บริษัท XYZ',
-    scheduledDate: new Date(),
-    startDate: new Date(),
-    endDate: new Date(),
-    status: TaskStatus.WAITING,
-    isLoop: false,
-    priority: 2,
-    createdById: 'user-1',
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    deletedAt: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000), // 20 days ago
-    assignments: [],
-  },
-];
-
 export default function TrashPage() {
   const { isAdmin, isFinance } = useRoleAccess();
-  const [deletedTasks, setDeletedTasks] = useState<Task[]>(mockDeletedTasks);
-  const [isLoading] = useState(false);
+  const [deletedTasks, setDeletedTasks] = useState<Task[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch deleted tasks from API
+  const fetchDeletedTasks = useCallback(async () => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/tasks?trash=true', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const result = await response.json();
+      if (result.success && result.data?.data) {
+        setDeletedTasks(result.data.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch deleted tasks:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchDeletedTasks();
+  }, [fetchDeletedTasks]);
 
   // Calculate days remaining before permanent deletion
   const getDaysRemaining = (deletedAt: Date | null | undefined) => {
@@ -77,19 +63,19 @@ export default function TrashPage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ deletedAt: null }),
+        body: JSON.stringify({ deletedAt: null, deletedById: null }),
       });
 
       const result = await response.json();
       if (result.success) {
         setDeletedTasks(prev => prev.filter(t => t.id !== taskId));
         alert('กู้คืนงานสำเร็จ');
+      } else {
+        alert(result.error || 'เกิดข้อผิดพลาด');
       }
     } catch (error) {
       console.error('Failed to restore task:', error);
-      // Demo: remove from list anyway
-      setDeletedTasks(prev => prev.filter(t => t.id !== taskId));
-      alert('กู้คืนงานสำเร็จ (Demo)');
+      alert('เกิดข้อผิดพลาดในการกู้คืน');
     }
   };
 
@@ -113,12 +99,12 @@ export default function TrashPage() {
       if (result.success) {
         setDeletedTasks(prev => prev.filter(t => t.id !== taskId));
         alert('ลบงานถาวรสำเร็จ');
+      } else {
+        alert(result.error || 'เกิดข้อผิดพลาด');
       }
     } catch (error) {
       console.error('Failed to delete task permanently:', error);
-      // Demo: remove from list anyway
-      setDeletedTasks(prev => prev.filter(t => t.id !== taskId));
-      alert('ลบงานถาวรสำเร็จ (Demo)');
+      alert('เกิดข้อผิดพลาดในการลบ');
     }
   };
 
@@ -127,9 +113,25 @@ export default function TrashPage() {
       return;
     }
 
-    // Demo: clear all
-    setDeletedTasks([]);
-    alert('ล้างถังขยะสำเร็จ');
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    try {
+      // Delete all tasks permanently
+      await Promise.all(
+        deletedTasks.map(task =>
+          fetch(`/api/tasks/${task.id}?permanent=true`, {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${token}` },
+          })
+        )
+      );
+      setDeletedTasks([]);
+      alert('ล้างถังขยะสำเร็จ');
+    } catch (error) {
+      console.error('Failed to empty trash:', error);
+      alert('เกิดข้อผิดพลาดในการล้างถังขยะ');
+    }
   };
 
   const canManageTrash = isAdmin || isFinance;

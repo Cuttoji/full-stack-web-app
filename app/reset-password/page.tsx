@@ -248,11 +248,6 @@ export default function ResetPasswordPage() {
               </div>
             </div>
           )}
-
-          {/* Footer */}
-          <p className="mt-8 text-center text-sm text-gray-500">
-            © 2026 TaskFlow. All rights reserved.
-          </p>
         </div>
       </div>
     </div>

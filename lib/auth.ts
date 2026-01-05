@@ -34,6 +34,7 @@ export function generateToken(user: AuthUser): string {
       role: user.role,
       departmentId: user.departmentId,
       subUnitId: user.subUnitId,
+      permissions: user.permissions,
     },
     JWT_SECRET,
     { expiresIn: JWT_EXPIRES_IN }
@@ -58,14 +59,26 @@ export function getTokenFromHeader(authHeader: string | null): string | null {
 // ==================== PERMISSION HELPERS ====================
 
 // ตรวจสอบว่า user มี permission หรือไม่
+// รองรับทั้งการส่ง role เดี่ยวๆ หรือ user object
 export function hasPermission(
-  role: Role, 
+  roleOrUser: Role | AuthUser, 
   permission: keyof UserPermissions,
   userPermissions?: UserPermissions
 ): boolean {
+  let role: Role;
+  let permissions: UserPermissions | undefined = userPermissions;
+  
+  // ถ้าส่ง AuthUser object มา
+  if (typeof roleOrUser === 'object' && roleOrUser !== null && 'role' in roleOrUser) {
+    role = roleOrUser.role as Role;
+    permissions = roleOrUser.permissions || userPermissions;
+  } else {
+    role = roleOrUser as Role;
+  }
+  
   // ถ้ามี custom permissions ให้ใช้ก่อน
-  if (userPermissions && userPermissions[permission] !== undefined) {
-    return userPermissions[permission] ?? false;
+  if (permissions && permissions[permission] !== undefined) {
+    return permissions[permission] ?? false;
   }
   // ใช้ default permissions ตาม role
   return DefaultRolePermissions[role]?.[permission] ?? false;

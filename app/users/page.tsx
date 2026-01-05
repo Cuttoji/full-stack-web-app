@@ -186,13 +186,13 @@ export default function UsersPage() {
     try {
       setIsSubmitting(true);
       
-      // Exclude password if empty
-      const updateData = { ...formData };
-      if (!updateData.password) {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { password: _password, ...rest } = updateData;
-        Object.assign(updateData, rest);
-        delete (updateData as { password?: string }).password;
+      // Build update data - convert password to newPassword for API
+      const { password, ...rest } = formData;
+      const updateData: Record<string, unknown> = { ...rest };
+      
+      // Only include newPassword if password was provided
+      if (password) {
+        updateData.newPassword = password;
       }
 
       const response = await fetch(`/api/users/${selectedUser.id}`, {
@@ -748,42 +748,36 @@ export default function UsersPage() {
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                อีเมล <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="email@example.com"
-              />
-            </div>
+            {/* Show email/password only when creating new user */}
+            {!isEditModalOpen && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    อีเมล <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="email@example.com"
+                  />
+                </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                รหัสผ่าน {!isEditModalOpen && <span className="text-red-500">*</span>}
-              </label>
-              <input
-                type="password"
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder={isEditModalOpen ? 'ว่างไว้หากไม่ต้องการเปลี่ยน' : '••••••••'}
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">เบอร์โทร</label>
-              <input
-                type="tel"
-                value={formData.phone || ''}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="0812345678"
-              />
-            </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    รหัสผ่าน <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="password"
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="••••••••"
+                  />
+                </div>
+              </>
+            )}
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -820,7 +814,7 @@ export default function UsersPage() {
               </select>
             </div>
 
-            <div>
+            <div className="col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">กลุ่มงาน</label>
               <select
                 value={formData.subUnitId || ''}
@@ -835,16 +829,6 @@ export default function UsersPage() {
                   </option>
                 ))}
               </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">วันลาต่อปี</label>
-              <input
-                type="number"
-                value={formData.leaveQuota || 10}
-                onChange={(e) => setFormData({ ...formData, leaveQuota: parseInt(e.target.value) })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
             </div>
           </div>
 
@@ -877,11 +861,11 @@ export default function UsersPage() {
                   </label>
                 </div>
 
-                {/* Approve Leave/Documents */}
+                {/* Approve Leave */}
                 <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div>
-                    <p className="text-sm font-medium text-gray-900">อนุมัติลา/เอกสาร</p>
-                    <p className="text-xs text-gray-600">อนุมัติหรือปฏิเสธคำขอลาและเอกสาร</p>
+                    <p className="text-sm font-medium text-gray-900">อนุมัติลา</p>
+                    <p className="text-xs text-gray-600">อนุมัติหรือปฏิเสธคำขอลา</p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input
@@ -890,6 +874,26 @@ export default function UsersPage() {
                       onChange={(e) => setFormData({
                         ...formData,
                         permissions: { ...formData.permissions, canApproveLeave: e.target.checked }
+                      })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                  </label>
+                </div>
+
+                {/* Approve Documents */}
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">อนุมัติเอกสาร</p>
+                    <p className="text-xs text-gray-600">อนุมัติหรือปฏิเสธเอกสารต่างๆ</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.permissions?.canApproveDocuments || false}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        permissions: { ...formData.permissions, canApproveDocuments: e.target.checked }
                       })}
                       className="sr-only peer"
                     />

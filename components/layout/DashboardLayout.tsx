@@ -2,7 +2,7 @@
 
 import { ReactNode, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Sidebar } from './SidebarNew';
+import { Sidebar } from './SidebarOptimized';
 import { NotificationBell } from './NotificationBell';
 import { Loader2 } from 'lucide-react';
 import { useRouter, usePathname } from 'next/navigation';

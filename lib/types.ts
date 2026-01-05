@@ -224,6 +224,9 @@ export interface UserPermissions {
   canApproveLeave?: boolean;
   canViewLeaveRequests?: boolean;
   
+  // Document Permissions
+  canApproveDocuments?: boolean;
+  
   // User Management
   canManageUsers?: boolean;
   canViewAllUsers?: boolean;
@@ -328,6 +331,7 @@ export const DefaultRolePermissions: Record<Role, UserPermissions> = {
     canViewTasks: true,
     canCreateTasks: true,
     canViewTeamCalendar: true,
+    canViewLeaveRequests: true,
     canViewReports: true,
   },
   [Role.HEAD_TECH]: {
@@ -365,6 +369,7 @@ export const DefaultRolePermissions: Record<Role, UserPermissions> = {
     canViewTasks: true,
     canViewTeamCalendar: true,
     canBookVehicles: true,
+    canViewLeaveRequests: true,
   },
 };
 
@@ -604,6 +609,7 @@ export interface AuthUser {
   avatar?: string;
   leaveQuota?: number;
   phone?: string;
+  permissions?: UserPermissions;
   department?: Department;
   subUnit?: SubUnit;
 }

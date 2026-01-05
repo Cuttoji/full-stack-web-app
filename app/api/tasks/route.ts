@@ -20,10 +20,20 @@ export const GET = withAuth(async (request: NextRequest, currentUser: AuthUser) 
     }
     
     const { page, limit, search, status, subUnitId, startDate, endDate } = queryValidation.data;
+    
+    // Check if requesting trash (deleted tasks)
+    const showTrash = searchParams.get('trash') === 'true';
 
     // Build where clause
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {};
+    
+    // Filter by trash status
+    if (showTrash) {
+      where.deletedAt = { not: null };
+    } else {
+      where.deletedAt = null;
+    }
 
     if (search) {
       where.OR = [
@@ -39,10 +49,16 @@ export const GET = withAuth(async (request: NextRequest, currentUser: AuthUser) 
       where.subUnitId = subUnitId;
     }
     if (startDate && endDate) {
-      where.scheduledDate = {
-        gte: new Date(startDate),
-        lte: new Date(endDate),
-      };
+      where.AND = [
+        ...(where.AND || []),
+        { scheduledDate: { not: null } },
+        {
+          scheduledDate: {
+            gte: new Date(startDate),
+            lte: new Date(endDate),
+          },
+        },
+      ];
     }
 
     // Role-based filtering
@@ -84,8 +100,9 @@ export const GET = withAuth(async (request: NextRequest, currentUser: AuthUser) 
     });
   } catch (error) {
     console.error('Get tasks error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'เกิดข้อผิดพลาดในการดึงข้อมูลงาน';
     return NextResponse.json<ApiResponse>(
-      { success: false, error: 'เกิดข้อผิดพลาดในการดึงข้อมูลงาน' },
+      { success: false, error: errorMessage },
       { status: 500 }
     );
   }

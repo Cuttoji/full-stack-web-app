@@ -36,6 +36,7 @@ export async function GET(
         leaveQuota: true,
         leaveUsed: true,
         isActive: true,
+        permissions: true,
         createdAt: true,
         updatedAt: true,
         department: true,
@@ -101,8 +102,20 @@ export async function PATCH(
       );
     }
 
-    const data: any = { ...updateData };
-
+    // Build update data - only include valid fields
+    const data: Record<string, unknown> = {};
+    
+    if (updateData.name !== undefined) data.name = updateData.name;
+    if (updateData.email !== undefined) data.email = updateData.email;
+    if (updateData.phone !== undefined) data.phone = updateData.phone || null;
+    if (updateData.role !== undefined) data.role = updateData.role;
+    if (updateData.departmentId !== undefined) data.departmentId = updateData.departmentId || null;
+    if (updateData.subUnitId !== undefined) data.subUnitId = updateData.subUnitId || null;
+    if (updateData.leaveQuota !== undefined) data.leaveQuota = updateData.leaveQuota;
+    if (updateData.isActive !== undefined) data.isActive = updateData.isActive;
+    if (updateData.permissions !== undefined) data.permissions = updateData.permissions;
+    if (updateData.employeeId !== undefined) data.employeeId = updateData.employeeId;
+    
     if (newPassword) {
       data.password = await hashPassword(newPassword);
     }
@@ -123,6 +136,7 @@ export async function PATCH(
         leaveQuota: true,
         leaveUsed: true,
         isActive: true,
+        permissions: true,
         createdAt: true,
         updatedAt: true,
         department: true,
@@ -137,8 +151,9 @@ export async function PATCH(
     });
   } catch (error) {
     console.error('Update user error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'เกิดข้อผิดพลาดในการอัปเดตผู้ใช้';
     return NextResponse.json<ApiResponse>(
-      { success: false, error: 'เกิดข้อผิดพลาดในการอัปเดตผู้ใช้' },
+      { success: false, error: errorMessage },
       { status: 500 }
     );
   }

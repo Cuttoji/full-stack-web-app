@@ -119,6 +119,8 @@ export async function PATCH(
         ...(body.notes !== undefined && { notes: body.notes }),
         ...(body.priority !== undefined && { priority: body.priority }),
         ...(body.status === 'DONE' && { completedAt: new Date() }),
+        // Support restore from trash
+        ...(body.deletedAt === null && { deletedAt: null, deletedById: null }),
         updatedAt: new Date(),
       },
       include: {
@@ -195,7 +197,14 @@ export async function DELETE(
     }
 
     if (permanent) {
-      // Permanent delete
+      // Permanent delete - only if already in trash
+      if (!existingTask.deletedAt) {
+        return NextResponse.json<ApiResponse>(
+          { success: false, error: 'กรุณาย้ายงานไปถังขยะก่อนลบถาวร' },
+          { status: 400 }
+        );
+      }
+      
       await prisma.task.delete({
         where: { id },
       });
@@ -205,12 +214,12 @@ export async function DELETE(
         message: 'ลบงานถาวรสำเร็จ',
       });
     } else {
-      // Soft delete - update status to CANCELLED
+      // Soft delete - set deletedAt timestamp
       const deletedTask = await prisma.task.update({
         where: { id },
         data: {
-          status: 'CANCELLED',
-          updatedAt: new Date(),
+          deletedAt: new Date(),
+          deletedById: currentUser.userId,
         },
       });
 
