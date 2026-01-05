@@ -28,7 +28,7 @@ export function authenticate(request: NextRequest): AuthCheck {
 
   if (!token) {
     authLogger.warn('Authentication failed: No token provided', {
-      path: request.nextUrl.pathname,
+      data: { path: request.nextUrl.pathname },
     });
     return {
       success: false,
@@ -42,7 +42,7 @@ export function authenticate(request: NextRequest): AuthCheck {
   const user = verifyToken(token);
   if (!user) {
     authLogger.warn('Authentication failed: Invalid token', {
-      path: request.nextUrl.pathname,
+      data: { path: request.nextUrl.pathname },
     });
     return {
       success: false,
@@ -68,8 +68,7 @@ export function requireRole(
   if (!allowedRoles.includes(user.role)) {
     authLogger.warn('Authorization failed: Insufficient role', {
       userId: user.id,
-      userRole: user.role,
-      requiredRoles: allowedRoles,
+      data: { userRole: user.role, requiredRoles: allowedRoles },
     });
     return NextResponse.json<ApiResponse>(
       { success: false, error: 'ไม่มีสิทธิ์เข้าถึง' },
@@ -86,13 +85,12 @@ export function requireRole(
 export function requirePermission(
   user: AuthUser,
   permission: keyof typeof import('@/lib/types').DefaultRolePermissions[Role],
-  scope?: PermissionScope
+  _scope?: PermissionScope
 ): NextResponse<ApiResponse> | null {
-  if (!hasPermission(user, permission, scope)) {
+  if (!hasPermission(user, permission, user.permissions)) {
     authLogger.warn('Authorization failed: Insufficient permission', {
       userId: user.id,
-      permission,
-      scope,
+      data: { permission },
     });
     return NextResponse.json<ApiResponse>(
       { success: false, error: 'ไม่มีสิทธิ์ดำเนินการนี้' },
@@ -120,8 +118,7 @@ export function requireRoleLevel(
   if (!hasRoleLevel(user, minRole)) {
     authLogger.warn('Authorization failed: Role level too low', {
       userId: user.id,
-      userRole: user.role,
-      requiredMinRole: minRole,
+      data: { userRole: user.role, requiredMinRole: minRole },
     });
     return NextResponse.json<ApiResponse>(
       { success: false, error: 'ไม่มีสิทธิ์เข้าถึง' },

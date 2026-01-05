@@ -116,7 +116,7 @@ const UserInfo = memo(function UserInfo({
 }) {
   return (
     <div className={cn(
-      "border-b border-gray-100 transition-all duration-300",
+      "border-b border-gray-100 dark:border-slate-700 transition-all duration-300",
       isCollapsed ? "p-3" : "p-4"
     )}>
       <div className={cn(
@@ -131,7 +131,7 @@ const UserInfo = memo(function UserInfo({
             {user?.name?.charAt(0) || 'U'}
           </div>
           <div className={cn(
-            "absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white",
+            "absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white dark:border-slate-800",
             isOnline ? "bg-green-500" : "bg-orange-500"
           )} />
         </div>
@@ -145,8 +145,8 @@ const UserInfo = memo(function UserInfo({
               exit={{ opacity: 0, x: -10 }}
               transition={{ duration: 0.2 }}
             >
-              <p className="text-sm font-semibold text-gray-900 truncate">{user?.name}</p>
-              <p className="text-xs text-gray-500">{RoleLabels[user?.role as Role]}</p>
+              <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{user?.name}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{RoleLabels[user?.role as Role]}</p>
             </motion.div>
           )}
         </AnimatePresence>
@@ -195,7 +195,7 @@ const CollapseButton = memo(function CollapseButton({
   return (
     <motion.button
       onClick={onClick}
-      className="absolute -right-3 top-6 z-50 w-6 h-6 bg-white rounded-full shadow-md border border-gray-200 flex items-center justify-center hover:bg-gray-50 hover:shadow-lg transition-all duration-200"
+      className="absolute -right-3 top-6 z-50 w-6 h-6 bg-white dark:bg-slate-700 rounded-full shadow-md border border-gray-200 dark:border-slate-600 flex items-center justify-center hover:bg-gray-50 dark:hover:bg-slate-600 hover:shadow-lg transition-all duration-200"
       whileHover={{ scale: 1.1 }}
       whileTap={{ scale: 0.9 }}
     >
@@ -203,7 +203,7 @@ const CollapseButton = memo(function CollapseButton({
         animate={{ rotate: isCollapsed ? 180 : 0 }}
         transition={{ duration: 0.3 }}
       >
-        <ChevronLeft className="w-4 h-4 text-gray-600" />
+        <ChevronLeft className="w-4 h-4 text-gray-600 dark:text-gray-300" />
       </motion.div>
     </motion.button>
   );
@@ -240,7 +240,7 @@ const NavItem = memo(function NavItem({
           transition={softSpring}
         >
           <div className={cn(
-            "absolute right-0 h-full bg-blue-50 border-l-4 border-[#2D5BFF]",
+            "absolute right-0 h-full bg-blue-50 dark:bg-blue-900/30 border-l-4 border-[#2D5BFF]",
             isCollapsed ? "w-[calc(100%+16px)] rounded-l-xl" : "w-[calc(100%+12px)] rounded-l-2xl"
           )} />
           
@@ -273,8 +273,8 @@ const NavItem = memo(function NavItem({
           "relative flex items-center h-12 rounded-xl transition-all duration-300 group z-10",
           isCollapsed ? "justify-center px-2" : "justify-between px-3",
           isActive
-            ? 'text-[#2D5BFF]'
-            : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+            ? 'text-[#2D5BFF] dark:text-blue-400'
+            : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 hover:text-gray-900 dark:hover:text-white'
         )}
         onClick={onClick}
         title={isCollapsed ? label : undefined}
@@ -349,14 +349,14 @@ const BottomActions = memo(function BottomActions({
 
   return (
     <div className={cn(
-      "border-t border-gray-100",
+      "border-t border-gray-100 dark:border-slate-700",
       isCollapsed ? "p-2" : "p-3"
     )}>
       
       <button
         onClick={handleLogout}
         className={cn(
-          "w-full flex items-center rounded-xl text-red-600 hover:bg-red-50 transition-all duration-200 group h-11",
+          "w-full flex items-center rounded-xl text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-all duration-200 group h-11",
           isCollapsed ? "justify-center px-2" : "space-x-3 px-3"
         )}
         title={isCollapsed ? "ออกจากระบบ" : undefined}
@@ -388,7 +388,7 @@ const MobileMenuButton = memo(function MobileMenuButton({
 }) {
   return (
     <motion.button
-      className="lg:hidden fixed top-4 left-4 z-50 p-2.5 bg-white rounded-xl shadow-lg border border-gray-100"
+      className="lg:hidden fixed top-4 left-4 z-50 p-2.5 bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-gray-100 dark:border-slate-700"
       onClick={onClick}
       whileHover={{ scale: 1.05 }}
       whileTap={{ scale: 0.95 }}
@@ -399,14 +399,14 @@ const MobileMenuButton = memo(function MobileMenuButton({
           transition={{ duration: 0.2 }}
           className="absolute inset-0"
         >
-          <Menu className="w-6 h-6 text-gray-700" />
+          <Menu className="w-6 h-6 text-gray-700 dark:text-gray-300" />
         </motion.div>
         <motion.div
           animate={{ rotate: isOpen ? 0 : -90, opacity: isOpen ? 1 : 0 }}
           transition={{ duration: 0.2 }}
           className="absolute inset-0"
         >
-          <X className="w-6 h-6 text-gray-700" />
+          <X className="w-6 h-6 text-gray-700 dark:text-gray-300" />
         </motion.div>
       </div>
     </motion.button>
@@ -499,7 +499,7 @@ export function Sidebar() {
 
       {/* Desktop Sidebar */}
       <motion.aside 
-        className="hidden lg:flex fixed inset-y-0 left-0 z-40 bg-white border-r border-gray-100 flex-col shadow-sm"
+        className="hidden lg:flex fixed inset-y-0 left-0 z-40 bg-white dark:bg-slate-800 border-r border-gray-100 dark:border-slate-700 flex-col shadow-sm"
         initial={false}
         animate={{ 
           width: isCollapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_EXPANDED 
@@ -556,7 +556,7 @@ export function Sidebar() {
       <AnimatePresence>
         {isMobileMenuOpen && (
           <motion.aside
-            className="lg:hidden fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-100 flex flex-col shadow-xl"
+            className="lg:hidden fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-slate-800 border-r border-gray-100 dark:border-slate-700 flex flex-col shadow-xl"
             {...slideFromLeft}
             transition={softSpring}
           >

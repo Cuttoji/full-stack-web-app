@@ -16,11 +16,16 @@ export const GET = withAuth(async (request: NextRequest, currentUser: AuthUser) 
     if (currentUser.role === 'LEADER' && currentUser.subUnitId) {
       // Leader dashboard - team-specific stats
       const [
-        teamTasks,
-        pendingTasks,
-        completedToday,
+        totalTasks,
+        waitingTasks,
+        inProgressTasks,
+        completedTasks,
+        cancelledTasks,
+        todayTasks,
         teamMembers,
         pendingLeaves,
+        teamOnLeaveToday,
+        availableCars,
       ] = await Promise.all([
         prisma.task.count({
           where: { subUnitId: currentUser.subUnitId },
@@ -29,10 +34,18 @@ export const GET = withAuth(async (request: NextRequest, currentUser: AuthUser) 
           where: { subUnitId: currentUser.subUnitId, status: 'WAITING' },
         }),
         prisma.task.count({
+          where: { subUnitId: currentUser.subUnitId, status: 'IN_PROGRESS' },
+        }),
+        prisma.task.count({
+          where: { subUnitId: currentUser.subUnitId, status: 'DONE' },
+        }),
+        prisma.task.count({
+          where: { subUnitId: currentUser.subUnitId, status: 'CANCELLED' },
+        }),
+        prisma.task.count({
           where: {
             subUnitId: currentUser.subUnitId,
-            status: 'DONE',
-            completedAt: { gte: today, lt: tomorrow },
+            createdAt: { gte: today, lt: tomorrow },
           },
         }),
         prisma.user.count({
@@ -44,15 +57,29 @@ export const GET = withAuth(async (request: NextRequest, currentUser: AuthUser) 
             status: 'PENDING',
           },
         }),
+        prisma.leave.count({
+          where: {
+            user: { subUnitId: currentUser.subUnitId },
+            status: 'APPROVED',
+            startDate: { lte: today },
+            endDate: { gte: today },
+          },
+        }),
+        prisma.car.count({ where: { status: 'AVAILABLE' } }),
       ]);
 
       const leaderStats: LeaderDashboardStats = {
-        teamTasks,
-        pendingTasks,
-        completedToday,
-        teamMembers,
+        totalTasks,
+        waitingTasks,
+        inProgressTasks,
+        completedTasks,
+        cancelledTasks,
+        todayTasks,
         pendingLeaves,
-        weeklyProgress: [],
+        availableCars,
+        teamMembersCount: teamMembers,
+        teamOnLeaveToday,
+        pendingLeaveRequests: pendingLeaves,
       };
 
       return NextResponse.json<ApiResponse<LeaderDashboardStats>>({
@@ -64,35 +91,32 @@ export const GET = withAuth(async (request: NextRequest, currentUser: AuthUser) 
     // Admin/General dashboard
     const [
       totalTasks,
-      pendingTasks,
+      waitingTasks,
       inProgressTasks,
       completedTasks,
-      totalUsers,
-      activeUsers,
+      cancelledTasks,
+      todayTasks,
       pendingLeaves,
-      totalCars,
       availableCars,
     ] = await Promise.all([
       prisma.task.count(),
       prisma.task.count({ where: { status: 'WAITING' } }),
       prisma.task.count({ where: { status: 'IN_PROGRESS' } }),
       prisma.task.count({ where: { status: 'DONE' } }),
-      prisma.user.count(),
-      prisma.user.count({ where: { isActive: true } }),
+      prisma.task.count({ where: { status: 'CANCELLED' } }),
+      prisma.task.count({ where: { createdAt: { gte: today, lt: tomorrow } } }),
       prisma.leave.count({ where: { status: 'PENDING' } }),
-      prisma.car.count(),
       prisma.car.count({ where: { status: 'AVAILABLE' } }),
     ]);
 
     const stats: DashboardStats = {
       totalTasks,
-      pendingTasks,
+      waitingTasks,
       inProgressTasks,
       completedTasks,
-      totalUsers,
-      activeUsers,
+      cancelledTasks,
+      todayTasks,
       pendingLeaves,
-      totalCars,
       availableCars,
     };
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useAuth, useRoleAccess } from '@/contexts/AuthContext';
 import { Button, Card, Modal } from '@/components/ui';
@@ -12,7 +12,6 @@ import {
   HalfDayPeriod,
   CreateLeaveRequest,
   LEAVE_TYPE_CONFIGS,
-  UserLeaveBalance,
 } from '@/lib/types';
 import { LEAVE_STATUS_LABELS, LEAVE_TYPE_LABELS, LeaveDurationTypeLabels, HalfDayPeriodLabels } from '@/lib/types';
 import {
@@ -36,6 +35,7 @@ import {
 } from 'lucide-react';
 import { formatDate, formatDateTime } from '@/lib/utils';
 
+// Types
 interface LeaveQuotaSummary {
   type: LeaveType;
   label: string;
@@ -47,62 +47,102 @@ interface LeaveQuotaSummary {
   note?: string;
 }
 
+interface ConflictingTask {
+  id: string;
+  jobNumber: string;
+  title: string;
+  startDate: string;
+  endDate: string;
+  status: string;
+}
+
+type ViewMode = 'my' | 'pending' | 'all';
+
+// Constants
+const INITIAL_FORM_DATA: CreateLeaveRequest = {
+  type: 'PERSONAL',
+  startDate: '',
+  endDate: '',
+  reason: '',
+  durationType: LeaveDurationType.FULL_DAY,
+};
+
+const STATUS_BADGE_COLORS: Record<LeaveStatus, string> = {
+  [LeaveStatus.PENDING]: 'bg-yellow-100 text-yellow-700',
+  [LeaveStatus.APPROVED]: 'bg-green-100 text-green-700',
+  [LeaveStatus.REJECTED]: 'bg-red-100 text-red-700',
+  [LeaveStatus.CANCELLED]: 'bg-gray-100 text-gray-700',
+};
+
+const LEAVE_TYPE_INFO: Record<string, string> = {
+  SICK: 'ลาป่วย 30 วัน/ปี - ลาได้เต็มวันหรือครึ่งวัน (ลาเกิน 3 วันต้องมีใบรับรองแพทย์)',
+  PERSONAL: 'ลากิจ 3 วัน/ปี - ลาได้เต็มวันเท่านั้น',
+  VACATION: 'ลาพักร้อน สูงสุด 6 วัน/ปี - คำนวณจากอายุงาน (เดือน/2) ลาได้เต็มวันหรือตามเวลา',
+  BIRTHDAY: 'ลาเดือนเกิด 1 วัน/ปี - ลาได้เฉพาะในเดือนเกิดเท่านั้น',
+};
+
+// Helper functions
+const getAllowedDurationTypes = (leaveType: string): LeaveDurationType[] => {
+  const config = LEAVE_TYPE_CONFIGS[leaveType as LeaveType];
+  return config?.allowedDurationTypes || [LeaveDurationType.FULL_DAY];
+};
+
+// Format decimal days to วัน ชม นาที
+const formatDaysToDisplay = (days: number): string => {
+  if (days === 0) return '0 วัน';
+  
+  const totalMinutes = Math.round(days * 480); // 1 day = 480 minutes (8 hours)
+  const d = Math.floor(totalMinutes / 480);
+  const remainingMinutes = totalMinutes % 480;
+  const h = Math.floor(remainingMinutes / 60);
+  const m = remainingMinutes % 60;
+  
+  const parts: string[] = [];
+  if (d > 0) parts.push(`${d} วัน`);
+  if (h > 0) parts.push(`${h} ชม`);
+  if (m > 0) parts.push(`${m} นาที`);
+  
+  return parts.length > 0 ? parts.join(' ') : '0 นาที';
+};
+
+const getStatusBadgeColor = (status: LeaveStatus): string => 
+  STATUS_BADGE_COLORS[status] || 'bg-gray-100 text-gray-700';
+
 export default function LeavesPage() {
   const { user } = useAuth();
   const { isLeader, isAdmin, isHeadTech, isFinanceLeader, isSalesLeader } = useRoleAccess();
+  const canApprove = isLeader || isAdmin || isHeadTech || isFinanceLeader || isSalesLeader;
   
+  // Data states
   const [leaves, setLeaves] = useState<Leave[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [selectedLeave, setSelectedLeave] = useState<Leave | null>(null);
-  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  
-  // Leave Balance State
-  const [, setLeaveBalance] = useState<UserLeaveBalance | null>(null);
   const [quotaSummary, setQuotaSummary] = useState<LeaveQuotaSummary[]>([]);
   
-  // Filter states
-  const [statusFilter, setStatusFilter] = useState<string>('');
-  const [viewMode, setViewMode] = useState<'my' | 'pending' | 'all'>('my');
+  // UI states
+  const [isLoading, setIsLoading] = useState(true);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [selectedLeave, setSelectedLeave] = useState<Leave | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('my');
+  const [statusFilter, setStatusFilter] = useState('');
   
-  // Create form states
-  const [formData, setFormData] = useState<CreateLeaveRequest>({
-    type: 'PERSONAL',
-    startDate: '',
-    endDate: '',
-    reason: '',
-    durationType: LeaveDurationType.FULL_DAY,
-  });
+  // Form states
+  const [formData, setFormData] = useState<CreateLeaveRequest>(INITIAL_FORM_DATA);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
   const [formWarnings, setFormWarnings] = useState<string[]>([]);
 
-  // For approval
+  // Approval states
   const [approvalNote, setApprovalNote] = useState('');
   const [isApproving, setIsApproving] = useState(false);
-  const [conflictingTasks, setConflictingTasks] = useState<{
-    id: string;
-    jobNumber: string;
-    title: string;
-    startDate: string;
-    endDate: string;
-    status: string;
-  }[]>([]);
+  const [conflictingTasks, setConflictingTasks] = useState<ConflictingTask[]>([]);
   const [hasTaskConflicts, setHasTaskConflicts] = useState(false);
 
-  // Get allowed duration types for selected leave type
-  const getAllowedDurationTypes = (leaveType: string): LeaveDurationType[] => {
-    const config = LEAVE_TYPE_CONFIGS[leaveType as LeaveType];
-    return config?.allowedDurationTypes || [LeaveDurationType.FULL_DAY];
-  };
-
   // Get remaining quota for a specific leave type
-  const getRemainingQuota = (leaveType: string): number => {
-    const quota = quotaSummary.find(q => q.type === leaveType);
-    return quota?.remaining || 0;
-  };
+  const getRemainingQuota = useCallback((leaveType: string): number => {
+    return quotaSummary.find(q => q.type === leaveType)?.remaining || 0;
+  }, [quotaSummary]);
 
-  const fetchLeaveBalance = async () => {
+  const fetchLeaveBalance = useCallback(async () => {
     const token = localStorage.getItem('token');
     if (!token) return;
 
@@ -113,15 +153,14 @@ export default function LeavesPage() {
 
       const data = await response.json();
       if (data.success) {
-        setLeaveBalance(data.data.balance);
         setQuotaSummary(data.data.summary);
       }
     } catch {
       console.error('Failed to fetch leave balance');
     }
-  };
+  }, []);
 
-  const fetchLeaves = async () => {
+  const fetchLeaves = useCallback(async () => {
     const token = localStorage.getItem('token');
     if (!token) return;
 
@@ -135,8 +174,8 @@ export default function LeavesPage() {
         params.append('status', statusFilter);
       }
 
-      if (viewMode === 'my') {
-        params.append('userId', user?.id || '');
+      if (viewMode === 'my' && user?.id) {
+        params.append('userId', user.id);
       }
 
       const response = await fetch(`/api/leaves?${params}`, {
@@ -152,18 +191,16 @@ export default function LeavesPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [viewMode, statusFilter, user?.id]);
 
   useEffect(() => {
     fetchLeaves();
     fetchLeaveBalance();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, viewMode]);
+  }, [fetchLeaves, fetchLeaveBalance]);
 
-  // Calculate leave minutes for live preview
+  // Memoized calculations
   const calculatedMinutes = useMemo(() => {
     if (!formData.startDate || !formData.endDate) return 0;
-    
     const isFullDay = formData.durationType === LeaveDurationType.FULL_DAY;
     return calculateLeaveMinutes(
       formData.startDate,
@@ -176,32 +213,29 @@ export default function LeavesPage() {
 
   // Generate time options for dropdowns
   const startTimeOptions = useMemo(() => generateTimeOptions(), []);
-  const endTimeOptions = useMemo(() => 
-    generateTimeOptions(formData.startTime), 
-    [formData.startTime]
-  );
+  const endTimeOptions = useMemo(() => generateTimeOptions(formData.startTime), [formData.startTime]);
 
-  // Calculate lunch overlap for warning display
-  const lunchOverlapMinutes = useMemo(() => {
+  // Calculate lunch overlap and raw minutes
+  const { lunchOverlapMinutes, rawMinutes } = useMemo(() => {
     if (formData.durationType !== LeaveDurationType.TIME_BASED || !formData.startTime || !formData.endTime) {
-      return 0;
+      return { lunchOverlapMinutes: 0, rawMinutes: 0 };
     }
     const [startHour, startMinute] = formData.startTime.split(':').map(Number);
     const [endHour, endMinute] = formData.endTime.split(':').map(Number);
-    return calculateLunchOverlap(startHour, startMinute, endHour, endMinute);
+    return {
+      lunchOverlapMinutes: calculateLunchOverlap(startHour, startMinute, endHour, endMinute),
+      rawMinutes: (endHour * 60 + endMinute) - (startHour * 60 + startMinute),
+    };
   }, [formData.durationType, formData.startTime, formData.endTime]);
 
-  // Calculate raw minutes (before lunch deduction) for display
-  const rawMinutes = useMemo(() => {
-    if (formData.durationType !== LeaveDurationType.TIME_BASED || !formData.startTime || !formData.endTime) {
-      return 0;
-    }
-    const [startHour, startMinute] = formData.startTime.split(':').map(Number);
-    const [endHour, endMinute] = formData.endTime.split(':').map(Number);
-    return (endHour * 60 + endMinute) - (startHour * 60 + startMinute);
-  }, [formData.durationType, formData.startTime, formData.endTime]);
+  // Event handlers
+  const resetForm = useCallback(() => {
+    setFormData(INITIAL_FORM_DATA);
+    setFormError('');
+    setFormWarnings([]);
+  }, []);
 
-  const handleCreateLeave = async () => {
+  const handleCreateLeave = useCallback(async () => {
     setFormError('');
     setFormWarnings([]);
     
@@ -287,15 +321,9 @@ export default function LeavesPage() {
           setFormWarnings(result.data.warnings);
         }
         setIsCreateModalOpen(false);
-        setFormData({ 
-          type: 'PERSONAL', 
-          startDate: '', 
-          endDate: '', 
-          reason: '',
-          durationType: LeaveDurationType.FULL_DAY,
-        });
+        resetForm();
         fetchLeaves();
-        fetchLeaveBalance(); // Refresh balance
+        fetchLeaveBalance();
       } else {
         setFormError(result.error || 'ไม่สามารถส่งคำขอได้');
       }
@@ -304,9 +332,9 @@ export default function LeavesPage() {
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }, [formData, calculatedMinutes, getRemainingQuota, user?.id, resetForm, fetchLeaves, fetchLeaveBalance]);
 
-  const handleApproval = async (status: 'APPROVED' | 'REJECTED') => {
+  const handleApproval = useCallback(async (status: 'APPROVED' | 'REJECTED') => {
     if (!selectedLeave) return;
     
     const token = localStorage.getItem('token');
@@ -340,9 +368,9 @@ export default function LeavesPage() {
     } finally {
       setIsApproving(false);
     }
-  };
+  }, [selectedLeave, approvalNote, fetchLeaves]);
 
-  const openDetail = async (leave: Leave) => {
+  const openDetail = useCallback(async (leave: Leave) => {
     setSelectedLeave(leave);
     setApprovalNote('');
     setConflictingTasks([]);
@@ -371,33 +399,39 @@ export default function LeavesPage() {
         console.error('Failed to validate leave:', error);
       }
     }
-  };
+  }, [canApprove]);
 
-  const getStatusBadgeColor = (status: LeaveStatus) => {
-    switch (status) {
-      case LeaveStatus.PENDING:
-        return 'bg-yellow-100 text-yellow-700';
-      case LeaveStatus.APPROVED:
-        return 'bg-green-100 text-green-700';
-      case LeaveStatus.REJECTED:
-        return 'bg-red-100 text-red-700';
-      case LeaveStatus.CANCELLED:
-        return 'bg-gray-100 text-gray-700';
-      default:
-        return 'bg-gray-100 text-gray-700';
-    }
-  };
+  // Form handlers
+  const handleTypeChange = useCallback((newType: LeaveType) => {
+    const allowedDurations = getAllowedDurationTypes(newType);
+    setFormData(prev => ({ 
+      ...prev, 
+      type: newType,
+      durationType: allowedDurations[0],
+      halfDayPeriod: undefined,
+      startTime: undefined,
+      endTime: undefined,
+    }));
+  }, []);
 
-  const canApprove = isLeader || isAdmin || isHeadTech || isFinanceLeader || isSalesLeader;
+  const handleDurationTypeChange = useCallback((durationType: LeaveDurationType) => {
+    setFormData(prev => ({ 
+      ...prev, 
+      durationType,
+      halfDayPeriod: durationType === LeaveDurationType.HALF_DAY ? HalfDayPeriod.MORNING : undefined,
+      startTime: undefined,
+      endTime: undefined,
+    }));
+  }, []);
 
   return (
     <DashboardLayout>
-      <div className="space-y-6 text-gray-800 mt-8">
+      <div className="space-y-6 text-gray-800 dark:text-gray-200 mt-8">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">การลา</h1>
-            <p className="text-gray-900">จัดการคำขอลางาน</p>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">การลา</h1>
+            <p className="text-gray-500 dark:text-gray-400">จัดการคำขอลางาน</p>
           </div>
           <Button
             onClick={() => setIsCreateModalOpen(true)}
@@ -411,7 +445,7 @@ export default function LeavesPage() {
         {user && quotaSummary.length > 0 && (
           <Card padding="md">
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-blue-500" />
                 โควตาการลาประจำปี {new Date().getFullYear()}
               </h3>
@@ -421,12 +455,12 @@ export default function LeavesPage() {
                     key={quota.type} 
                     className={`p-4 rounded-lg border ${
                       quota.remaining === 0 
-                        ? 'bg-red-50 border-red-200' 
-                        : 'bg-blue-50 border-blue-200'
+                        ? 'bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800' 
+                        : 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800'
                     }`}
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-gray-700">{quota.label}</span>
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{quota.label}</span>
                       {quota.note && (
                         <div className="group relative">
                           <Info className="w-4 h-4 text-gray-400 cursor-help" />
@@ -436,20 +470,20 @@ export default function LeavesPage() {
                         </div>
                       )}
                     </div>
-                    <div className="flex items-baseline gap-1">
-                      <span className={`text-2xl font-bold ${
-                        quota.remaining === 0 ? 'text-red-600' : 'text-blue-600'
+                    <div className="flex flex-col">
+                      <span className={`text-xl font-bold ${
+                        quota.remaining === 0 ? 'text-red-600 dark:text-red-400' : 'text-blue-600 dark:text-blue-400'
                       }`}>
-                        {quota.remaining}
+                        {formatDaysToDisplay(quota.remaining)}
                       </span>
-                      <span className="text-sm text-gray-500">/ {quota.quota} วัน</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">จากทั้งหมด {quota.quota} วัน</span>
                     </div>
-                    <div className="mt-2 text-xs text-gray-500 space-y-1">
-                      <div>ใช้ไป: {quota.used} วัน</div>
+                    <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 space-y-1">
+                      <div>ใช้ไป: {formatDaysToDisplay(quota.used)}</div>
                       {quota.pending > 0 && (
-                        <div className="text-yellow-600">รออนุมัติ: {quota.pending} วัน</div>
+                        <div className="text-yellow-600 dark:text-yellow-400">รออนุมัติ: {formatDaysToDisplay(quota.pending)}</div>
                       )}
-                      <div className="text-gray-400">
+                      <div className="text-gray-400 dark:text-gray-500">
                         รูปแบบ: {quota.allowedDurationTypes.join(', ')}
                       </div>
                     </div>
@@ -468,8 +502,8 @@ export default function LeavesPage() {
                 onClick={() => setViewMode('my')}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                   viewMode === 'my'
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-gray-600 hover:bg-gray-100'
+                    ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
                 }`}
               >
                 การลาของฉัน
@@ -480,8 +514,8 @@ export default function LeavesPage() {
                     onClick={() => setViewMode('pending')}
                     className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                       viewMode === 'pending'
-                        ? 'bg-blue-100 text-blue-700'
-                        : 'text-gray-600 hover:bg-gray-100'
+                        ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300'
+                        : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
                     }`}
                   >
                     รออนุมัติ
@@ -490,8 +524,8 @@ export default function LeavesPage() {
                     onClick={() => setViewMode('all')}
                     className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                       viewMode === 'all'
-                        ? 'bg-blue-100 text-blue-700'
-                        : 'text-gray-600 hover:bg-gray-100'
+                        ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300'
+                        : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
                     }`}
                   >
                     ทั้งหมด
@@ -504,7 +538,7 @@ export default function LeavesPage() {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
               >
                 <option value="">ทุกสถานะ</option>
                 <option value="PENDING">รออนุมัติ</option>
@@ -537,30 +571,30 @@ export default function LeavesPage() {
                       <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusBadgeColor(leave.status)}`}>
                         {LEAVE_STATUS_LABELS[leave.status]}
                       </span>
-                      <span className="text-sm text-gray-500">
+                      <span className="text-sm text-gray-500 dark:text-gray-400">
                         {LEAVE_TYPE_LABELS[leave.type as keyof typeof LEAVE_TYPE_LABELS]}
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-4 text-sm text-gray-600">
+                    <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-300">
                       <span className="flex items-center gap-1">
                         <Calendar className="w-4 h-4" />
                         {formatDate(leave.startDate)} - {formatDate(leave.endDate)}
                       </span>
                       <span className="flex items-center gap-1">
                         <Clock className="w-4 h-4" />
-                        {leave.totalDays} วัน
+                        {formatDaysToDisplay(leave.totalDays)}
                       </span>
                     </div>
 
                     {viewMode !== 'my' && (
-                      <div className="flex items-center gap-1 text-sm text-gray-500">
+                      <div className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
                         <User className="w-4 h-4" />
                         {leave.user?.name}
                       </div>
                     )}
 
-                    <p className="text-gray-600">{leave.reason}</p>
+                    <p className="text-gray-600 dark:text-gray-300">{leave.reason}</p>
                   </div>
 
                   {leave.status === LeaveStatus.PENDING && canApprove && viewMode === 'pending' && (
@@ -595,9 +629,9 @@ export default function LeavesPage() {
           </div>
         ) : (
           <Card>
-            <div className="text-center py-12 text-gray-500">
-              <FileText className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-              <p className="text-lg font-medium">ไม่พบรายการลา</p>
+            <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+              <FileText className="w-12 h-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
+              <p className="text-lg font-medium text-gray-900 dark:text-white">ไม่พบรายการลา</p>
               <p className="text-sm">ลองเปลี่ยนตัวกรองหรือสร้างคำขอลาใหม่</p>
             </div>
           </Card>
@@ -610,15 +644,15 @@ export default function LeavesPage() {
         onClose={() => setIsCreateModalOpen(false)}
         title="ขอลางาน"
       >
-        <div className="space-y-4 text-gray-800">
+        <div className="space-y-4 text-gray-800 dark:text-gray-200">
           {formError && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+            <div className="p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-300 text-sm">
               {formError}
             </div>
           )}
 
           {formWarnings.length > 0 && (
-            <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-700 text-sm">
+            <div className="p-3 bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800 rounded-lg text-yellow-700 dark:text-yellow-300 text-sm">
               <div className="font-medium mb-1">⚠️ หมายเหตุ:</div>
               <ul className="list-disc list-inside">
                 {formWarnings.map((warning, idx) => (
@@ -629,22 +663,11 @@ export default function LeavesPage() {
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-900 mb-1">ประเภทการลา</label>
+            <label className="block text-sm font-medium text-gray-900 dark:text-white mb-1">ประเภทการลา</label>
             <select
               value={formData.type}
-              onChange={(e) => {
-                const newType = e.target.value as LeaveType;
-                const allowedDurations = getAllowedDurationTypes(newType);
-                setFormData({ 
-                  ...formData, 
-                  type: newType,
-                  durationType: allowedDurations[0], // Reset to first allowed type
-                  halfDayPeriod: undefined,
-                  startTime: undefined,
-                  endTime: undefined,
-                });
-              }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              onChange={(e) => handleTypeChange(e.target.value as LeaveType)}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
             >
               <option value="SICK">ลาป่วย (คงเหลือ {getRemainingQuota('SICK')} วัน)</option>
               <option value="PERSONAL">ลากิจ (คงเหลือ {getRemainingQuota('PERSONAL')} วัน)</option>
@@ -654,43 +677,26 @@ export default function LeavesPage() {
             </select>
             
             {/* Show leave type info */}
-            {formData.type && (
-              <div className="mt-2 p-2 bg-gray-50 rounded text-xs text-gray-600">
-                {formData.type === 'SICK' && (
-                  <span>ลาป่วย 30 วัน/ปี - ลาได้เต็มวันหรือครึ่งวัน (ลาเกิน 3 วันต้องมีใบรับรองแพทย์)</span>
-                )}
-                {formData.type === 'PERSONAL' && (
-                  <span>ลากิจ 3 วัน/ปี - ลาได้เต็มวันเท่านั้น</span>
-                )}
-                {formData.type === 'VACATION' && (
-                  <span>ลาพักร้อน สูงสุด 6 วัน/ปี - คำนวณจากอายุงาน (เดือน/2) ลาได้เต็มวันหรือตามเวลา</span>
-                )}
-                {formData.type === 'BIRTHDAY' && (
-                  <span>ลาเดือนเกิด 1 วัน/ปี - ลาได้เฉพาะในเดือนเกิดเท่านั้น</span>
-                )}
+            {formData.type && LEAVE_TYPE_INFO[formData.type] && (
+              <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-800 rounded text-xs text-gray-600 dark:text-gray-400">
+                {LEAVE_TYPE_INFO[formData.type]}
               </div>
             )}
           </div>
 
           {/* Duration Type Selection */}
           <div>
-            <label className="block text-sm font-medium text-gray-900 mb-1">รูปแบบการลา</label>
+            <label className="block text-sm font-medium text-gray-900 dark:text-white mb-1">รูปแบบการลา</label>
             <div className="flex gap-2 flex-wrap">
               {getAllowedDurationTypes(formData.type as string).map((durationType) => (
                 <button
                   key={durationType}
                   type="button"
-                  onClick={() => setFormData({ 
-                    ...formData, 
-                    durationType,
-                    halfDayPeriod: durationType === LeaveDurationType.HALF_DAY ? HalfDayPeriod.MORNING : undefined,
-                    startTime: undefined,
-                    endTime: undefined,
-                  })}
+                  onClick={() => handleDurationTypeChange(durationType)}
                   className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
                     formData.durationType === durationType
-                      ? 'bg-blue-100 border-blue-500 text-blue-700'
-                      : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                      ? 'bg-blue-100 dark:bg-blue-900/50 border-blue-500 text-blue-700 dark:text-blue-300'
+                      : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
                   }`}
                 >
                   {LeaveDurationTypeLabels[durationType]}
@@ -702,7 +708,7 @@ export default function LeavesPage() {
           {/* Half Day Period Selection */}
           {formData.durationType === LeaveDurationType.HALF_DAY && (
             <div>
-              <label className="block text-sm font-medium text-gray-900 mb-1">ช่วงเวลา</label>
+              <label className="block text-sm font-medium text-gray-900 dark:text-white mb-1">ช่วงเวลา</label>
               <div className="flex gap-2">
                 {Object.values(HalfDayPeriod).map((period) => (
                   <button
@@ -711,8 +717,8 @@ export default function LeavesPage() {
                     onClick={() => setFormData({ ...formData, halfDayPeriod: period })}
                     className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
                       formData.halfDayPeriod === period
-                        ? 'bg-blue-100 border-blue-500 text-blue-700'
-                        : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                        ? 'bg-blue-100 dark:bg-blue-900/50 border-blue-500 text-blue-700 dark:text-blue-300'
+                        : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
                     }`}
                   >
                     {HalfDayPeriodLabels[period]}
@@ -727,11 +733,11 @@ export default function LeavesPage() {
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-1">เวลาเริ่ม</label>
+                  <label className="block text-sm font-medium text-gray-900 dark:text-white mb-1">เวลาเริ่ม</label>
                   <select
                     value={formData.startTime || ''}
                     onChange={(e) => setFormData({ ...formData, startTime: e.target.value, endTime: '' })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                   >
                     <option value="">เลือกเวลา</option>
                     {startTimeOptions.map((opt) => (
@@ -742,11 +748,11 @@ export default function LeavesPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-1">เวลาสิ้นสุด</label>
+                  <label className="block text-sm font-medium text-gray-900 dark:text-white mb-1">เวลาสิ้นสุด</label>
                   <select
                     value={formData.endTime || ''}
                     onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                     disabled={!formData.startTime}
                   >
                     <option value="">เลือกเวลา</option>
@@ -758,8 +764,8 @@ export default function LeavesPage() {
                   </select>
                 </div>
               </div>
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm">
-                <div className="flex items-center gap-2 text-blue-700 mb-2">
+              <div className="p-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg text-sm">
+                <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300 mb-2">
                   <Info className="w-4 h-4" />
                   <span className="font-medium">ข้อมูลการลา</span>
                 </div>
@@ -774,21 +780,21 @@ export default function LeavesPage() {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-900 mb-1">วันที่เริ่ม</label>
+              <label className="block text-sm font-medium text-gray-900 mb-1 dark:text-white">วันที่เริ่ม</label>
               <input
                 type="date"
                 value={formData.startDate}
                 onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-900 mb-1">วันที่สิ้นสุด</label>
+              <label className="block text-sm font-medium text-gray-900 mb-1 dark:text-white">วันที่สิ้นสุด</label>
               <input
                 type="date"
                 value={formData.endDate}
                 onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
               />
             </div>
           </div>
@@ -852,12 +858,12 @@ export default function LeavesPage() {
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-900 mb-1">เหตุผล</label>
+            <label className="block text-sm font-medium text-gray-900 mb-1 dark:text-white">เหตุผล</label>
             <textarea
               value={formData.reason}
               onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
               placeholder="ระบุเหตุผลการลา..."
             />
           </div>
@@ -890,7 +896,7 @@ export default function LeavesPage() {
         size="lg"
       >
         {selectedLeave && (
-          <div className="space-y-4 text-gray-800">
+          <div className="space-y-4 text-gray-800 dark:text-gray-200">
             <div className="flex items-center gap-3">
               <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusBadgeColor(selectedLeave.status)}`}>
                 {LEAVE_STATUS_LABELS[selectedLeave.status]}
@@ -902,40 +908,55 @@ export default function LeavesPage() {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-sm text-gray-900 font-semibold">ผู้ขอลา</p>
-                <p className="font-medium text-gray-900">{selectedLeave.user?.name}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 font-semibold">ผู้ขอลา</p>
+                <p className="font-medium text-gray-900 dark:text-white">{selectedLeave.user?.name}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-900 font-semibold">จำนวนวัน</p>
-                <p className="font-medium text-gray-900">{selectedLeave.totalDays} วัน</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 font-semibold">จำนวนวัน</p>
+                <p className="font-medium text-gray-900 dark:text-white">{selectedLeave.totalDays} วัน</p>
               </div>
               <div>
-                <p className="text-sm text-gray-900 font-semibold">วันที่เริ่ม</p>
-                <p className="font-medium text-gray-900">{formatDate(selectedLeave.startDate)}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 font-semibold">วันที่เริ่ม</p>
+                <p className="font-medium text-gray-900 dark:text-white">{formatDate(selectedLeave.startDate)}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-900 font-semibold">วันที่สิ้นสุด</p>
-                <p className="font-medium text-gray-900">{formatDate(selectedLeave.endDate)}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 font-semibold">วันที่สิ้นสุด</p>
+                <p className="font-medium text-gray-900 dark:text-white">{formatDate(selectedLeave.endDate)}</p>
               </div>
             </div>
 
             <div>
-              <p className="text-sm text-gray-900 font-semibold">เหตุผล</p>
-              <p className="font-medium text-gray-900">{selectedLeave.reason}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 font-semibold">เหตุผล</p>
+              <p className="font-medium text-gray-900 dark:text-white">{selectedLeave.reason}</p>
+            </div>
+
+            {/* แสดงโควตาคงเหลือ */}
+            <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              <p className="text-sm font-semibold text-gray-900 dark:text-white mb-3">โควตาการลาคงเหลือ</p>
+              <div className="grid grid-cols-2 gap-3">
+                {quotaSummary.filter(q => q.type !== LeaveType.OTHER).map((quota) => (
+                  <div key={quota.type} className="flex justify-between items-center text-sm">
+                    <span className="text-gray-600 dark:text-gray-400">{quota.label}</span>
+                    <span className={`font-medium ${quota.remaining === 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+                      {quota.remaining}/{quota.quota} วัน
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
 
             {selectedLeave.approver && (
               <div>
-                <p className="text-sm text-gray-900 font-semibold">อนุมัติโดย</p>
-                <p className="font-medium text-gray-900">{selectedLeave.approver.name}</p>
+                <p className="text-sm text-gray-900 dark:text-white font-semibold">อนุมัติโดย</p>
+                <p className="font-medium text-gray-900 dark:text-gray-200">{selectedLeave.approver.name}</p>
                 {selectedLeave.approverNote && (
-                  <p className="text-sm text-gray-900 mt-1">{selectedLeave.approverNote}</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{selectedLeave.approverNote}</p>
                 )}
               </div>
             )}
 
             {selectedLeave.status === LeaveStatus.PENDING && canApprove && (
-              <div className="pt-4 border-t space-y-4">
+              <div className="pt-4 border-t border-gray-200 dark:border-gray-700 space-y-4">
                 {/* Warning for conflicting tasks */}
                 {hasTaskConflicts && conflictingTasks.length > 0 && (
                   <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
@@ -965,14 +986,14 @@ export default function LeavesPage() {
                 )}
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-1">
+                  <label className="block text-sm font-medium text-gray-900 dark:text-white mb-1">
                     หมายเหตุ (ถ้ามี)
                   </label>
                   <textarea
                     value={approvalNote}
                     onChange={(e) => setApprovalNote(e.target.value)}
                     rows={2}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                     placeholder="เพิ่มหมายเหตุ..."
                   />
                 </div>
@@ -1002,7 +1023,7 @@ export default function LeavesPage() {
               </div>
             )}
 
-            <div className="text-xs text-gray-900 pt-4 border-t">
+            <div className="text-xs text-gray-500 dark:text-gray-400 pt-4 border-t border-gray-200 dark:border-gray-700">
               สร้างเมื่อ {formatDateTime(selectedLeave.createdAt)}
             </div>
           </div>

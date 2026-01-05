@@ -170,8 +170,8 @@ export default function TasksPage() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">จัดการงาน</h1>
-            <p className="text-gray-900">ดูและจัดการงานทั้งหมด</p>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">จัดการงาน</h1>
+            <p className="text-gray-900 dark:text-gray-400">ดูและจัดการงานทั้งหมด</p>
           </div>
           <div className="flex items-center gap-3">
             <Link href="/tasks/trash">
@@ -197,16 +197,16 @@ export default function TasksPage() {
 
         {/* Filters */}
         <Card padding="sm">
-          <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
-            <div className="flex-1 w-full md:max-w-sm">
+          <div className="flex flex-col md:flex-row gap-4 items-start md:items-center ">
+            <div className="flex-1 w-full md:max-w-sm ">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500 " />
                 <input
                   type="text"
                   placeholder="ค้นหางาน..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
                 />
               </div>
             </div>
@@ -215,7 +215,7 @@ export default function TasksPage() {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
               >
                 <option value="">ทุกสถานะ</option>
                 <option value="WAITING">รอรับงาน</option>
@@ -227,7 +227,7 @@ export default function TasksPage() {
               <select
                 value={subUnitFilter}
                 onChange={(e) => setSubUnitFilter(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
               >
                 <option value="">ทุกกลุ่มงาน</option>
                 {subUnits.map((unit) => (
@@ -248,7 +248,7 @@ export default function TasksPage() {
             ))}
           </div>
         ) : tasks.length > 0 ? (
-          <div className="grid gap-4 grid-cols-1">
+          <div className="grid gap-4 grid-cols-1" style={{ overflow: 'visible' }}>
             {tasks.map((task) => (
               <TaskCard 
                 key={task.id} 
@@ -263,9 +263,9 @@ export default function TasksPage() {
         ) : (
           <Card>
             <div className="text-center py-12">
-              <Filter className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-              <p className="text-lg font-medium text-red-900">ไม่พบงาน</p>
-              <p className="text-sm text-gray-900">ลองเปลี่ยนตัวกรองหรือสร้างงานใหม่</p>
+              <Filter className="w-12 h-12 mx-auto mb-4 text-gray-400 dark:text-gray-400" />
+              <p className="text-lg font-medium text-red-900 dark:text-red-400">ไม่พบงาน</p>
+              <p className="text-sm text-gray-900 dark:text-gray-400">ลองเปลี่ยนตัวกรองหรือสร้างงานใหม่</p>
             </div>
           </Card>
         )}
@@ -280,7 +280,7 @@ export default function TasksPage() {
             >
               ก่อนหน้า
             </Button>
-            <span className="px-4 py-2 text-gray-900">
+            <span className="px-4 py-2 text-gray-900 dark:text-white">
               หน้า {page} จาก {totalPages}
             </span>
             <Button

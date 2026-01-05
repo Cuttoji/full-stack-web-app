@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken, getTokenFromHeader, hasPermission } from '@/lib/auth';
-import { ApiResponse, Role, PermissionKey } from '@/lib/types';
+import { ApiResponse, Role, UserPermissions } from '@/lib/types';
+
+type PermissionKey = keyof UserPermissions;
 
 export interface AuthenticatedRequest extends NextRequest {
   user?: {

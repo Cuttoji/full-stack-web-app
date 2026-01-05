@@ -1,7 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { verifyToken, getTokenFromHeader } from '@/lib/auth';
-import { ApiResponse, OfflineAction, SyncResult } from '@/lib/types';
+import { ApiResponse, OfflineAction, TaskStatus } from '@/lib/types';
+import { Prisma } from '@prisma/client';
+
+// Extended SyncResult with IDs for tracking
+interface SyncResultWithIds {
+  success: boolean;
+  synced: number;
+  failed: number;
+  errors?: string[];
+  syncedIds: string[];   // IDs ของ action ที่ sync สำเร็จ
+  failedIds: string[];   // IDs ของ action ที่ sync ล้มเหลว
+}
 
 // POST /api/sync - Sync offline actions
 export async function POST(request: NextRequest) {
@@ -27,11 +38,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result: SyncResult = {
+    const result: SyncResultWithIds = {
       success: true,
       synced: 0,
       failed: 0,
       errors: [],
+      syncedIds: [],
+      failedIds: [],
     };
 
     // Process each offline action
@@ -44,7 +57,7 @@ export async function POST(request: NextRequest) {
             action: action.action,
             endpoint: action.endpoint,
             method: action.method,
-            payload: action.payload as any,
+            payload: action.payload as Prisma.InputJsonValue,
             status: 'PENDING',
           },
         });
@@ -52,11 +65,11 @@ export async function POST(request: NextRequest) {
         // Process the action based on type
         switch (action.action) {
           case 'UPDATE_TASK_STATUS':
-            const { taskId, status } = action.payload as any;
+            const { taskId, status } = action.payload as { taskId: string; status: TaskStatus };
             await prisma.task.update({
               where: { id: taskId },
               data: {
-                status,
+                status: status as TaskStatus,
                 ...(status === 'DONE' ? { completedAt: new Date() } : {}),
               },
             });
@@ -64,13 +77,30 @@ export async function POST(request: NextRequest) {
 
           case 'CREATE_PRINTER_LOG':
             await prisma.printerLog.create({
-              data: action.payload as any,
+              data: action.payload as {
+                taskId: string;
+                technicianId: string;
+                symptom: string;
+                solution: string;
+                printerModel?: string;
+                serialNumber?: string;
+                diagnosis?: string;
+                partsUsed?: string;
+                laborTime?: number;
+                notes?: string;
+              },
             });
             break;
 
           case 'CREATE_TASK_IMAGE':
             await prisma.taskImage.create({
-              data: action.payload as any,
+              data: action.payload as {
+                taskId: string;
+                uploadedBy: string;
+                imageUrl: string;
+                imageType: string;
+                description?: string;
+              },
             });
             break;
 
@@ -86,9 +116,11 @@ export async function POST(request: NextRequest) {
         });
 
         result.synced++;
+        result.syncedIds.push(action.id); // Track synced action ID
       } catch (error) {
         result.failed++;
-        result.errors?.push(`Failed to process action: ${action.action}`);
+        result.failedIds.push(action.id); // Track failed action ID
+        result.errors?.push(`Failed to process action ${action.id}: ${action.action}`);
 
         // Mark as failed
         await prisma.offlineQueue.updateMany({
@@ -104,7 +136,7 @@ export async function POST(request: NextRequest) {
 
     result.success = result.failed === 0;
 
-    return NextResponse.json<ApiResponse<SyncResult>>({
+    return NextResponse.json<ApiResponse<SyncResultWithIds>>({
       success: true,
       data: result,
       message: `Synced ${result.synced} actions, ${result.failed} failed`,
@@ -135,7 +167,12 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const deviceId = searchParams.get('deviceId');
 
-    const where: any = { status: { in: ['PENDING', 'FAILED'] } };
+    interface OfflineQueueWhere {
+      status: { in: string[] };
+      deviceId?: string;
+    }
+    
+    const where: OfflineQueueWhere = { status: { in: ['PENDING', 'FAILED'] } };
     if (deviceId) where.deviceId = deviceId;
 
     const pendingItems = await prisma.offlineQueue.findMany({

@@ -216,10 +216,18 @@ model Task {
   carId         String?    // รถที่ใช้
   createdById   String     // ผู้สร้างงาน
   notes        String?    // หมายเหตุ
-  priority     Int        @default(1) // 1=Low, 2=Medium, 3=High
   completedAt  DateTime?  // เวลาที่จบงาน
   deletedAt    DateTime?  // Soft delete - ถังขยะ
   deletedById  String?    // ผู้ลบ
+  
+  // Document tracking fields
+  documentDetails     String?   // รายละเอียดเอกสาร
+  documentsComplete   Boolean   @default(false) // เอกสารครบหรือไม่ (ช่างตรวจสอบ)
+  documentNotes       String?   // หมายเหตุเอกสาร (ถ้าไม่ครบ)
+  documentConfirmed   Boolean   @default(false) // ยืนยันเอกสารจาก Admin/Finance
+  documentConfirmedBy String?   // ผู้ยืนยันเอกสาร
+  documentConfirmedAt DateTime? // วันที่ยืนยันเอกสาร
+  
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
@@ -240,7 +248,6 @@ model Task {
   @@index([createdById])
   @@index([scheduledDate])
   @@index([carId])
-  @@index([priority, status])
   @@map("tasks")
 }
 

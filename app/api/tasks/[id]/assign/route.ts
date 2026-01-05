@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { verifyToken, getTokenFromHeader, hasPermission } from '@/lib/auth';
 import { ApiResponse, AssignTaskRequest, Role, ConflictResult } from '@/lib/types';
+import { notifyTaskAssignment } from '@/lib/notifications';
 
 // POST /api/tasks/[id]/assign - Assign task to technicians and car
 export async function POST(
@@ -180,16 +181,13 @@ export async function POST(
         })),
       });
 
-      // Create notifications
-      await prisma.notification.createMany({
-        data: assigneeIds.map((userId) => ({
-          userId,
-          title: 'ได้รับมอบหมายงาน',
-          message: `คุณได้รับมอบหมายงาน: ${task.title}`,
-          type: 'TASK',
-          link: `/tasks/${id}`,
-        })),
-      });
+      // Create notifications using notification service
+      await notifyTaskAssignment(
+        id,
+        task.title,
+        assigneeIds,
+        currentUser.name || 'ผู้ใช้ระบบ'
+      );
     }
 
     // Update car

@@ -15,7 +15,7 @@ const rateLimiter = new RateLimiterMemory({
 export async function POST(request: NextRequest) {
   const ip =
     request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-    request.ip ||
+    request.headers.get('x-real-ip') ||
     'unknown';
 
   try {
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json<ApiResponse<LoginResponse>>({
       success: true,
       data: {
-        user: userWithoutPassword as LoginResponse['user'],
+        user: userWithoutPassword as unknown as LoginResponse['user'],
         token,
       },
       message: 'เข้าสู่ระบบสำเร็จ',

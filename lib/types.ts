@@ -219,6 +219,7 @@ export interface UserPermissions {
   // Vehicle Permissions
   canBookVehicles?: boolean;
   canManageFleet?: boolean;
+  canManageCars?: boolean;       // สำหรับจัดการรถ (CRUD)
   
   // Leave Permissions
   canApproveLeave?: boolean;
@@ -231,12 +232,18 @@ export interface UserPermissions {
   canManageUsers?: boolean;
   canViewAllUsers?: boolean;
   
+  // Department/SubUnit Management
+  canManageDepartments?: boolean;
+  
   // Daily Operations
   canManageDailyTechnician?: boolean;
   
   // Reports
   canViewReports?: boolean;
   canExportData?: boolean;
+  
+  // Scheduler
+  canRunScheduler?: boolean;
 }
 
 // ==================== ROLE HIERARCHY & DEFAULT PERMISSIONS ====================
@@ -280,13 +287,16 @@ export const DefaultRolePermissions: Record<Role, UserPermissions> = {
     canViewTeamCalendar: true,
     canBookVehicles: true,
     canManageFleet: true,
+    canManageCars: true,
     canApproveLeave: true,
     canViewLeaveRequests: true,
     canManageUsers: true,
     canViewAllUsers: true,
+    canManageDepartments: true,
     canManageDailyTechnician: true,
     canViewReports: true,
     canExportData: true,
+    canRunScheduler: true,
   },
   [Role.CUSTOMER_SERVICE]: {
     canViewTasks: true,
@@ -312,8 +322,13 @@ export const DefaultRolePermissions: Record<Role, UserPermissions> = {
   },
   [Role.FINANCE]: {
     canViewTasks: true,
+    canCreateTasks: true,
+    canEditTaskDetails: true,
+    canViewAllCalendars: true,
     canViewTeamCalendar: true,
+    canBookVehicles: true,
     canViewLeaveRequests: true,
+    canViewAllUsers: true,
     canViewReports: true,
   },
   [Role.SALES_LEADER]: {
@@ -330,8 +345,12 @@ export const DefaultRolePermissions: Record<Role, UserPermissions> = {
   [Role.SALES]: {
     canViewTasks: true,
     canCreateTasks: true,
+    canEditTaskDetails: true,
+    canViewAllCalendars: true,
     canViewTeamCalendar: true,
+    canBookVehicles: true,
     canViewLeaveRequests: true,
+    canViewAllUsers: true,
     canViewReports: true,
   },
   [Role.HEAD_TECH]: {
@@ -345,13 +364,16 @@ export const DefaultRolePermissions: Record<Role, UserPermissions> = {
     canViewTeamCalendar: true,
     canBookVehicles: true,
     canManageFleet: true,
+    canManageCars: true,
     canApproveLeave: true,
     canViewLeaveRequests: true,
     canManageUsers: true,
     canViewAllUsers: true,
+    canManageDepartments: true,
     canManageDailyTechnician: true,
     canViewReports: true,
     canExportData: true,
+    canRunScheduler: true,
   },
   [Role.LEADER]: {
     canViewTasks: true,
@@ -426,9 +448,17 @@ export interface Task {
   carId?: string;
   createdById: string;
   notes?: string;
-  priority: number;
   completedAt?: Date;
   deletedAt?: Date | null; // Soft delete - ถังขยะ 30 วัน
+  
+  // Document tracking
+  documentDetails?: string;       // รายละเอียดเอกสาร
+  documentsComplete?: boolean;    // เอกสารครบหรือไม่ (ช่างตรวจสอบ)
+  documentNotes?: string;         // หมายเหตุเอกสาร (ถ้าไม่ครบ)
+  documentConfirmed?: boolean;    // ยืนยันเอกสารจาก Admin/Finance
+  documentConfirmedBy?: string;   // ผู้ยืนยันเอกสาร
+  documentConfirmedAt?: Date;     // วันที่ยืนยันเอกสาร
+  
   createdAt: Date;
   updatedAt: Date;
   subUnit?: SubUnit;
@@ -631,12 +661,15 @@ export interface CreateTaskRequest {
   subUnitId?: string;
   carId?: string;
   assigneeIds?: string[];
-  priority?: number;
   notes?: string;
+  documentDetails?: string; // รายละเอียดเอกสารที่ต้องตรวจสอบ
 }
 
 export interface UpdateTaskRequest extends Partial<CreateTaskRequest> {
   status?: TaskStatus;
+  documentsComplete?: boolean;
+  documentNotes?: string;
+  documentConfirmed?: boolean;
 }
 
 export interface AssignTaskRequest {

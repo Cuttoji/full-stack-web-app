@@ -242,12 +242,12 @@ export default function CarsPage() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6 text-gray-800 mt-8">
+      <div className="space-y-6 text-gray-800 dark:text-gray-200 mt-8">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">จัดการรถ</h1>
-            <p className="text-gray-700">ดูและจัดการรถทั้งหมด</p>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">จัดการรถ</h1>
+            <p className="text-gray-500 dark:text-gray-400">ดูและจัดการรถทั้งหมด</p>
           </div>
           {canManage && (
             <Button
@@ -267,8 +267,8 @@ export default function CarsPage() {
           <Card padding="sm">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-700">ว่าง</p>
-                <p className="text-2xl font-bold text-green-600">
+                <p className="text-sm text-gray-500 dark:text-gray-400">ว่าง</p>
+                <p className="text-2xl font-bold text-green-600 dark:text-green-400">
                   {cars.filter((c) => c.status === CarStatus.AVAILABLE).length}
                 </p>
               </div>
@@ -278,8 +278,8 @@ export default function CarsPage() {
           <Card padding="sm">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-700">ใช้งานอยู่</p>
-                <p className="text-2xl font-bold text-blue-600">
+                <p className="text-sm text-gray-500 dark:text-gray-400">ใช้งานอยู่</p>
+                <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
                   {cars.filter((c) => c.status === CarStatus.IN_USE).length}
                 </p>
               </div>
@@ -289,8 +289,8 @@ export default function CarsPage() {
           <Card padding="sm">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-700">ซ่อมบำรุง</p>
-                <p className="text-2xl font-bold text-yellow-600">
+                <p className="text-sm text-gray-500 dark:text-gray-400">ซ่อมบำรุง</p>
+                <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
                   {cars.filter((c) => c.status === CarStatus.MAINTENANCE).length}
                 </p>
               </div>
@@ -300,8 +300,8 @@ export default function CarsPage() {
           <Card padding="sm">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-700">ไม่พร้อมใช้งาน</p>
-                <p className="text-2xl font-bold text-red-600">
+                <p className="text-sm text-gray-500 dark:text-gray-400">ไม่พร้อมใช้งาน</p>
+                <p className="text-2xl font-bold text-red-600 dark:text-red-400">
                   {cars.filter((c) => c.status === CarStatus.OUT_OF_SERVICE).length}
                 </p>
               </div>
@@ -321,7 +321,7 @@ export default function CarsPage() {
                   placeholder="ค้นหาทะเบียน, ยี่ห้อ..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
                 />
               </div>
             </div>
@@ -329,7 +329,7 @@ export default function CarsPage() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
             >
               <option value="">ทุกสถานะ</option>
               <option value="AVAILABLE">ว่าง</option>
@@ -344,7 +344,7 @@ export default function CarsPage() {
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div key={i} className="h-48 bg-gray-100 rounded-lg animate-pulse" />
+              <div key={i} className="h-48 bg-gray-100 dark:bg-gray-700 rounded-lg animate-pulse" />
             ))}
           </div>
         ) : cars.length > 0 ? (
@@ -356,8 +356,8 @@ export default function CarsPage() {
                     <div className="flex items-center gap-3">
                       {getStatusIcon(car.status)}
                       <div>
-                        <h3 className="font-semibold text-gray-900">{car.licensePlate}</h3>
-                        <p className="text-sm text-gray-700">
+                        <h3 className="font-semibold text-gray-900 dark:text-white">{car.licensePlate}</h3>
+                        <p className="text-sm text-gray-600 dark:text-gray-300">
                           {car.brand} {car.model}
                         </p>
                       </div>
@@ -372,31 +372,31 @@ export default function CarsPage() {
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     {car.year && (
                       <div>
-                        <p className="text-gray-700">ปี</p>
-                        <p className="font-medium">{car.year + 543}</p>
+                        <p className="text-gray-500 dark:text-gray-400">ปี</p>
+                        <p className="font-medium text-gray-900 dark:text-white">{car.year + 543}</p>
                       </div>
                     )}
                     {car.mileage && (
                       <div>
-                        <p className="text-gray-700">เลขไมล์</p>
-                        <p className="font-medium">{car.mileage.toLocaleString()} กม.</p>
+                        <p className="text-gray-500 dark:text-gray-400">เลขไมล์</p>
+                        <p className="font-medium text-gray-900 dark:text-white">{car.mileage.toLocaleString()} กม.</p>
                       </div>
                     )}
                   </div>
 
                   {car.lastMaintenanceDate && (
-                    <div className="flex items-center gap-1 text-sm text-gray-700">
+                    <div className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-300">
                       <Calendar className="w-4 h-4" />
                       <span>ซ่อมบำรุงล่าสุด: {formatDate(car.lastMaintenanceDate)}</span>
                     </div>
                   )}
 
                   {car.notes && (
-                    <p className="text-sm text-gray-700 line-clamp-2">{car.notes}</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">{car.notes}</p>
                   )}
 
                   {canManage && (
-                    <div className="flex gap-2 pt-2 border-t">
+                    <div className="flex gap-2 pt-2 border-t dark:border-gray-700">
                       <Button
                         size="sm"
                         variant="outline"
@@ -421,10 +421,10 @@ export default function CarsPage() {
           </div>
         ) : (
           <Card>
-            <div className="text-center py-12 text-gray-700">
-              <CarIcon className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-              <p className="text-lg font-medium">ไม่พบรถ</p>
-              <p className="text-sm">ลองเปลี่ยนตัวกรองหรือเพิ่มรถใหม่</p>
+            <div className="text-center py-12">
+              <CarIcon className="w-12 h-12 mx-auto mb-4 text-gray-400 dark:text-gray-500" />
+              <p className="text-lg font-medium text-gray-900 dark:text-white">ไม่พบรถ</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">ลองเปลี่ยนตัวกรองหรือเพิ่มรถใหม่</p>
             </div>
           </Card>
         )}
@@ -441,48 +441,48 @@ export default function CarsPage() {
         }}
         title={isEditModalOpen ? 'แก้ไขข้อมูลรถ' : 'เพิ่มรถใหม่'}
       >
-        <div className="space-y-4 text-gray-800">
+        <div className="space-y-4 text-gray-800 dark:text-gray-200">
           {formError && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+            <div className="p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-300 text-sm">
               {formError}
             </div>
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               ทะเบียนรถ <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
               value={formData.licensePlate || ''}
               onChange={(e) => setFormData({ ...formData, licensePlate: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
               placeholder="กข 1234"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 ยี่ห้อ <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 value={formData.brand || ''}
                 onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                 placeholder="Toyota"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 รุ่น <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 value={formData.model || ''}
                 onChange={(e) => setFormData({ ...formData, model: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                 placeholder="Hilux Revo"
               />
             </div>
@@ -490,34 +490,34 @@ export default function CarsPage() {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">ปี</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ปี</label>
               <input
                 type="number"
                 value={formData.year || new Date().getFullYear()}
                 onChange={(e) => setFormData({ ...formData, year: parseInt(e.target.value) })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">เลขไมล์</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">เลขไมล์</label>
               <input
                 type="number"
                 value={formData.mileage || ''}
                 onChange={(e) =>
                   setFormData({ ...formData, mileage: e.target.value ? parseInt(e.target.value) : undefined })
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                 placeholder="0"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">สถานะ</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">สถานะ</label>
             <select
               value={formData.status}
               onChange={(e) => setFormData({ ...formData, status: e.target.value as CarStatus })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
             >
               <option value="AVAILABLE">ว่าง</option>
               <option value="IN_USE">ใช้งานอยู่</option>
@@ -527,24 +527,24 @@ export default function CarsPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               วันที่ซ่อมบำรุงล่าสุด
             </label>
             <input
               type="date"
               value={formData.lastMaintenanceDate || ''}
               onChange={(e) => setFormData({ ...formData, lastMaintenanceDate: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">หมายเหตุ</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">หมายเหตุ</label>
             <textarea
               value={formData.notes || ''}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
               rows={2}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
               placeholder="รายละเอียดเพิ่มเติม..."
             />
           </div>
@@ -584,11 +584,11 @@ export default function CarsPage() {
         title="ยืนยันการลบ"
       >
         <div className="space-y-4">
-          <div className="flex items-center gap-3 p-4 bg-red-50 rounded-lg">
+          <div className="flex items-center gap-3 p-4 bg-red-50 dark:bg-red-900/30 rounded-lg">
             <AlertTriangle className="w-6 h-6 text-red-500" />
             <div>
-              <p className="font-medium text-red-900">คุณต้องการลบรถนี้หรือไม่?</p>
-              <p className="text-sm text-red-700">
+              <p className="font-medium text-red-900 dark:text-red-300">คุณต้องการลบรถนี้หรือไม่?</p>
+              <p className="text-sm text-red-700 dark:text-red-400">
                 {selectedCar?.licensePlate} - {selectedCar?.brand} {selectedCar?.model}
               </p>
             </div>

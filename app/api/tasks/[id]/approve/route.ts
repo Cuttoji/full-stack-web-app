@@ -33,7 +33,7 @@ export async function POST(
     }
 
     // Check permission - only Admin, Finance, HeadTech can approve
-    const canApprove = hasPermission(currentUser.role as Role, 'canApproveTasks');
+    const canApprove = hasPermission(currentUser.role as Role, 'canManageTasks');
     if (!canApprove) {
       return NextResponse.json<ApiResponse>(
         { success: false, error: 'คุณไม่มีสิทธิ์อนุมัติงาน' },
@@ -71,23 +71,34 @@ export async function POST(
       );
     }
 
-    // Update task with approval information
-    const updatedTask = await prisma.task.update({
-      where: { id },
+    // Create approval log in ActivityLog instead of task fields
+    const approvalDetails = {
+      approvedBy: { id: currentUser.id, name: currentUser.name },
+      checklist,
+      notes: notes || null,
+      approvedAt: new Date().toISOString(),
+    };
+
+    // Create activity log for the approval
+    await prisma.activityLog.create({
       data: {
-        approvedById: currentUser.id,
-        approvedAt: new Date(),
-        approvalNotes: notes || null,
-        approvalChecklist: JSON.stringify(checklist),
-        updatedAt: new Date(),
+        taskId: id,
+        userId: currentUser.id,
+        action: 'APPROVED',
+        entityType: 'TASK',
+        entityId: id,
+        oldData: { status: task.status },
+        newData: approvalDetails,
       },
+    });
+
+    // Get updated task
+    const updatedTask = await prisma.task.findUnique({
+      where: { id },
       include: {
         subUnit: true,
         car: true,
         createdBy: {
-          select: { id: true, name: true, email: true },
-        },
-        approvedBy: {
           select: { id: true, name: true, email: true },
         },
       },

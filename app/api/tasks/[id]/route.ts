@@ -1,7 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken, getTokenFromHeader } from '@/lib/auth';
-import { ApiResponse, UpdateTaskRequest, Task, TaskStatus } from '@/lib/types';
+import { verifyToken, getTokenFromHeader, hasPermission } from '@/lib/auth';
+import { ApiResponse, Task, TaskStatus, Role } from '@/lib/types';
+import { updateTaskSchema, validateRequest, idSchema } from '@/lib/validations';
 import prisma from '@/lib/prisma';
+
+// Validate task ID
+function validateTaskId(id: string): { valid: true } | { valid: false; error: string } {
+  const result = idSchema.safeParse(id);
+  if (!result.success) {
+    return { valid: false, error: 'รหัสงานไม่ถูกต้อง' };
+  }
+  return { valid: true };
+}
 
 // GET /api/tasks/[id] - Get task by ID
 export async function GET(
@@ -79,6 +89,16 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params;
+    
+    // Validate task ID
+    const idValidation = validateTaskId(id);
+    if (!idValidation.valid) {
+      return NextResponse.json<ApiResponse>(
+        { success: false, error: idValidation.error },
+        { status: 400 }
+      );
+    }
+    
     const authHeader = request.headers.get('authorization');
     const token = getTokenFromHeader(authHeader);
     const currentUser = token ? verifyToken(token) : null;
@@ -90,7 +110,18 @@ export async function PATCH(
       );
     }
 
-    const body: UpdateTaskRequest = await request.json();
+    const body = await request.json();
+    
+    // Validate request body
+    const validation = validateRequest(updateTaskSchema, body);
+    if (!validation.success) {
+      return NextResponse.json<ApiResponse>(
+        { success: false, error: validation.errors.join(', ') },
+        { status: 400 }
+      );
+    }
+    
+    const validatedData = validation.data;
 
     const existingTask = await prisma.task.findUnique({
       where: { id },
@@ -102,25 +133,55 @@ export async function PATCH(
         { status: 404 }
       );
     }
+    
+    // Check edit permission - only allow edit if user has permission or is creator
+    const canEdit = hasPermission(currentUser.role as Role, 'canEditTaskDetails') ||
+                   existingTask.createdById === currentUser.id;
+    
+    // Status change validation - certain roles can change to certain statuses
+    if (validatedData.status && validatedData.status !== existingTask.status) {
+      // TECH can only change to IN_PROGRESS or DONE for assigned tasks
+      if (currentUser.role === Role.TECH) {
+        const isAssigned = await prisma.taskAssignment.findFirst({
+          where: { taskId: id, userId: currentUser.id },
+        });
+        if (!isAssigned) {
+          return NextResponse.json<ApiResponse>(
+            { success: false, error: 'คุณไม่ได้รับมอบหมายงานนี้' },
+            { status: 403 }
+          );
+        }
+        if (validatedData.status === TaskStatus.CANCELLED && !hasPermission(currentUser.role as Role, 'canManageTasks')) {
+          return NextResponse.json<ApiResponse>(
+            { success: false, error: 'คุณไม่มีสิทธิ์ยกเลิกงาน' },
+            { status: 403 }
+          );
+        }
+      }
+    }
+    
+    if (!canEdit && !validatedData.status) {
+      return NextResponse.json<ApiResponse>(
+        { success: false, error: 'คุณไม่มีสิทธิ์แก้ไขงานนี้' },
+        { status: 403 }
+      );
+    }
 
     const updatedTask = await prisma.task.update({
       where: { id },
       data: {
-        ...(body.title && { title: body.title }),
-        ...(body.description !== undefined && { description: body.description }),
-        ...(body.status && { status: body.status as TaskStatus }),
-        ...(body.location && { location: body.location }),
-        ...(body.customerName && { customerName: body.customerName }),
-        ...(body.customerPhone && { customerPhone: body.customerPhone }),
-        ...(body.startDate && { startDate: new Date(body.startDate) }),
-        ...(body.endDate && { endDate: new Date(body.endDate) }),
-        ...(body.startTime && { startTime: body.startTime }),
-        ...(body.endTime && { endTime: body.endTime }),
-        ...(body.notes !== undefined && { notes: body.notes }),
-        ...(body.priority !== undefined && { priority: body.priority }),
-        ...(body.status === 'DONE' && { completedAt: new Date() }),
-        // Support restore from trash
-        ...(body.deletedAt === null && { deletedAt: null, deletedById: null }),
+        ...(validatedData.title && { title: validatedData.title }),
+        ...(validatedData.description !== undefined && { description: validatedData.description }),
+        ...(validatedData.status && { status: validatedData.status as TaskStatus }),
+        ...(validatedData.location && { location: validatedData.location }),
+        ...(validatedData.customerName && { customerName: validatedData.customerName }),
+        ...(validatedData.customerPhone && { customerPhone: validatedData.customerPhone }),
+        ...(validatedData.startDate && { startDate: new Date(validatedData.startDate) }),
+        ...(validatedData.endDate && { endDate: new Date(validatedData.endDate) }),
+        ...(validatedData.startTime && { startTime: validatedData.startTime }),
+        ...(validatedData.endTime && { endTime: validatedData.endTime }),
+        ...(validatedData.notes !== undefined && { notes: validatedData.notes }),
+        ...(validatedData.status === 'DONE' && { completedAt: new Date() }),
         updatedAt: new Date(),
       },
       include: {
@@ -171,6 +232,16 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
+    
+    // Validate task ID
+    const idValidation = validateTaskId(id);
+    if (!idValidation.valid) {
+      return NextResponse.json<ApiResponse>(
+        { success: false, error: idValidation.error },
+        { status: 400 }
+      );
+    }
+    
     const authHeader = request.headers.get('authorization');
     const token = getTokenFromHeader(authHeader);
     const currentUser = token ? verifyToken(token) : null;
@@ -179,6 +250,14 @@ export async function DELETE(
       return NextResponse.json<ApiResponse>(
         { success: false, error: 'กรุณาเข้าสู่ระบบ' },
         { status: 401 }
+      );
+    }
+    
+    // Check delete permission
+    if (!hasPermission(currentUser.role as Role, 'canDeleteTasks')) {
+      return NextResponse.json<ApiResponse>(
+        { success: false, error: 'คุณไม่มีสิทธิ์ลบงาน' },
+        { status: 403 }
       );
     }
 
@@ -219,7 +298,7 @@ export async function DELETE(
         where: { id },
         data: {
           deletedAt: new Date(),
-          deletedById: currentUser.userId,
+          deletedById: currentUser.id,
         },
       });
 

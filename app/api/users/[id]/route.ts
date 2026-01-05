@@ -53,7 +53,7 @@ export async function GET(
 
     return NextResponse.json<ApiResponse<User>>({
       success: true,
-      data: user as any,
+      data: user as unknown as User,
     });
   } catch (error) {
     console.error('Get user error:', error);
@@ -146,7 +146,7 @@ export async function PATCH(
 
     return NextResponse.json<ApiResponse<User>>({
       success: true,
-      data: user as any,
+      data: user as unknown as User,
       message: 'อัปเดตข้อมูลผู้ใช้สำเร็จ',
     });
   } catch (error) {

@@ -63,13 +63,13 @@ export default function DashboardPage() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6 text-gray-800 mt-8">
+      <div className="space-y-6 text-gray-800 dark:text-gray-200 mt-8">
         {/* Header */}
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
             {getGreeting()}, {user?.name}!
           </h1>
-          <p className="text-gray-900">นี่คือภาพรวมของวันนี้</p>
+          <p className="text-gray-900 dark:text-gray-400">นี่คือภาพรวมของวันนี้</p>
         </div>
 
         {/* Stats Grid */}
@@ -164,20 +164,6 @@ export default function DashboardPage() {
                   </Link>
                 }
               />
-              <div className="space-y-3">
-                <div className="p-4 bg-blue-50 border-l-4 border-blue-500 rounded-r-lg">
-                  <h4 className="font-semibold text-blue-800">📢 ประชุมประจำเดือน</h4>
-                  <p className="text-sm text-blue-700 mt-1">วันที่ 2 มกราคม 2568 เวลา 09:00 น. ห้องประชุมใหญ่</p>
-                </div>
-                <div className="p-4 bg-yellow-50 border-l-4 border-yellow-500 rounded-r-lg">
-                  <h4 className="font-semibold text-yellow-800">⚠️ ปิดปรับปรุงระบบ</h4>
-                  <p className="text-sm text-yellow-700 mt-1">วันที่ 31 ธันวาคม 2567 เวลา 22:00 - 06:00 น.</p>
-                </div>
-                <div className="p-4 bg-green-50 border-l-4 border-green-500 rounded-r-lg">
-                  <h4 className="font-semibold text-green-800">🎉 วันหยุดปีใหม่</h4>
-                  <p className="text-sm text-green-700 mt-1">วันที่ 1-3 มกราคม 2568 หยุดราชการ</p>
-                </div>
-              </div>
             </Card>
           </div>
 
@@ -225,8 +211,8 @@ export default function DashboardPage() {
             {/* Today's Schedule */}
             <Card>
               <CardHeader title="กำหนดการวันนี้" />
-              <div className="text-center py-6 text-gray-900">
-                <Calendar className="w-10 h-10 mx-auto mb-2 text-gray-900" />
+              <div className="text-center py-6 text-gray-900 dark:text-white">
+                <Calendar className="w-10 h-10 mx-auto mb-2 text-gray-900 dark:text-white" />
                 <p className="text-sm">
                   {stats?.todayTasks || 0} งานวันนี้
                 </p>

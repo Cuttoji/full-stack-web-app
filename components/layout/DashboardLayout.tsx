@@ -2,6 +2,7 @@
 
 import { ReactNode, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { Sidebar } from './SidebarOptimized';
 import { NotificationBell } from './NotificationBell';
 import { Loader2 } from 'lucide-react';
@@ -13,6 +14,7 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { isAuthenticated, isLoading } = useAuth();
+  const { isDark } = useTheme();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -27,7 +29,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       <div className="min-h-screen flex items-center justify-center">
         <div className="flex flex-col items-center space-y-4">
           <Loader2 className="w-12 h-12 text-[#2D5BFF] animate-spin" />
-          <p className="text-gray-900 font-medium">กำลังโหลด...</p>
+          <p className="text-gray-900 dark:text-gray-100 font-medium">กำลังโหลด...</p>
         </div>
       </div>
     );
@@ -37,19 +39,41 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     return null;
   }
 
+  // Light theme: Day sky with clouds
+  // Dark theme: Night sky with stars and moon
+  const backgroundStyle = isDark 
+    ? { background: 'linear-gradient(180deg, #0c1445 0%, #1a237e 40%, #311b92 100%)' }
+    : { background: 'linear-gradient(180deg, #87CEEB 0%, #B0E2FF 40%, #E0F4FF 100%)' };
+
   return (
-    <div className="min-h-screen flex relative overflow-hidden" style={{ background: 'linear-gradient(180deg, #87CEEB 0%, #B0E2FF 40%, #E0F4FF 100%)' }}>
-      {/* Floating Clouds */}
-      <div className="cloud cloud-1" />
-      <div className="cloud cloud-2" />
-      <div className="cloud cloud-3" />
-      <div className="cloud cloud-4" />
-      <div className="cloud cloud-5" />
+    <div className="min-h-screen flex relative overflow-hidden" style={backgroundStyle}>
+      {/* Light theme: Floating Clouds */}
+      {!isDark && (
+        <>
+          <div className="cloud cloud-1" />
+          <div className="cloud cloud-2" />
+          <div className="cloud cloud-3" />
+          <div className="cloud cloud-4" />
+          <div className="cloud cloud-5" />
+        </>
+      )}
+      
+      {/* Dark theme: Stars and Moon */}
+      {isDark && (
+        <>
+          <div className="stars stars-1" />
+          <div className="stars stars-2" />
+          <div className="stars stars-3" />
+          <div className="moon" />
+        </>
+      )}
       
       <Sidebar />
       
       {/* Fixed Notification Bell - Top Right */}
-      <NotificationBell className="fixed top-4 right-4 z-50" />
+      <div className="fixed top-4 right-6 z-50">
+        <NotificationBell />
+      </div>
       
       <main className="flex-1 p-4 lg:p-8 pt-16 lg:pt-8 pb-8 overflow-auto relative z-10">
         <div className="max-w-7xl mx-auto">

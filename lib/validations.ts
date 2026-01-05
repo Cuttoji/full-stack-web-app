@@ -96,7 +96,6 @@ export const createTaskSchema = z.object({
   endTime: timeSchema.optional().default('17:00'),
   subUnitId: z.string().optional(),
   carId: z.string().optional(),
-  priority: z.number().int().min(1).max(5).optional().default(1),
 }).refine((data) => new Date(data.startDate) <= new Date(data.endDate), {
   message: 'วันเริ่มต้นต้องไม่เกินวันสิ้นสุด',
   path: ['endDate'],
@@ -115,7 +114,6 @@ export const updateTaskSchema = z.object({
   status: taskStatusSchema.optional(),
   subUnitId: z.string().nullable().optional(),
   carId: z.string().nullable().optional(),
-  priority: z.number().int().min(1).max(5).optional(),
   notes: z.string().max(2000).optional(),
 });
 

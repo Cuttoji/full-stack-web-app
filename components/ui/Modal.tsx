@@ -42,21 +42,21 @@ export function Modal({
       <div className="flex min-h-full items-center justify-center p-4">
         <div
           className={`
-            relative w-full ${sizeStyles[size]} bg-white rounded-xl shadow-xl
+            relative w-full ${sizeStyles[size]} bg-white dark:bg-slate-800 rounded-xl shadow-xl
             transform transition-all
           `}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
           {(title || showCloseButton) && (
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-slate-700">
               {title && (
-                <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{title}</h3>
               )}
               {showCloseButton && (
                 <button
                   onClick={onClose}
-                  className="p-1 rounded-lg text-gray-900 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+                  className="p-1 rounded-lg text-gray-900 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
                 >
                   <X className="w-5 h-5" />
                 </button>

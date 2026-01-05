@@ -306,12 +306,12 @@ export default function CalendarPage() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6 text-gray-800 mt-8">
+      <div className="space-y-6 text-gray-800 dark:text-gray-200 mt-8">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">ปฏิทินงาน</h1>
-            <p className="text-gray-500">ดูตารางงานในรูปแบบปฏิทิน</p>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">ปฏิทินงาน</h1>
+            <p className="text-gray-500 dark:text-gray-400">ดูตารางงานในรูปแบบปฏิทิน</p>
           </div>
           <div className="flex items-center gap-3">
             <Link href="/tasks">
@@ -350,7 +350,7 @@ export default function CalendarPage() {
               <select
                 value={selectedSubUnit}
                 onChange={(e) => setSelectedSubUnit(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
               >
                 <option value="">ทุกกลุ่มงาน</option>
                 {subUnits.map((unit) => (
@@ -366,12 +366,12 @@ export default function CalendarPage() {
         {/* Calendar Grid */}
         <Card padding="none">
           {/* Weekday Headers */}
-          <div className="grid grid-cols-7 border-b">
+          <div className="grid grid-cols-7 border-b dark:border-gray-700">
             {WEEKDAYS.map((day, index) => (
               <div
                 key={day}
                 className={`py-3 text-center text-sm font-medium ${
-                  index === 0 ? 'text-red-500' : index === 6 ? 'text-blue-500' : 'text-gray-600'
+                  index === 0 ? 'text-red-500' : index === 6 ? 'text-blue-500' : 'text-gray-600 dark:text-gray-300'
                 }`}
               >
                 {day}
@@ -385,21 +385,21 @@ export default function CalendarPage() {
               <div
                 key={`${day.dateString}-${index}`}
                 onClick={() => day.isCurrentMonth && setSelectedDay(day)}
-                className={`min-h-[100px] p-2 border-b border-r cursor-pointer transition-colors ${
-                  day.isCurrentMonth ? 'bg-white hover:bg-gray-50' : 'bg-gray-50'
+                className={`min-h-[100px] p-2 border-b border-r dark:border-gray-700 cursor-pointer transition-colors ${
+                  day.isCurrentMonth ? 'bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700' : 'bg-gray-50 dark:bg-slate-900'
                 } ${day.isToday ? 'ring-2 ring-inset ring-blue-500' : ''}`}
               >
                 <div
                   className={`text-sm font-medium mb-1 ${
                     !day.isCurrentMonth
-                      ? 'text-gray-300'
+                      ? 'text-gray-300 dark:text-gray-600'
                       : day.isToday
                       ? 'text-blue-600'
                       : index % 7 === 0
                       ? 'text-red-500'
                       : index % 7 === 6
                       ? 'text-blue-500'
-                      : 'text-gray-900'
+                      : 'text-gray-900 dark:text-gray-200'
                   }`}
                 >
                   {day.date}
@@ -417,7 +417,7 @@ export default function CalendarPage() {
                       </div>
                     ))}
                     {day.tasks.length > 3 && (
-                      <p className="text-xs text-gray-500">+{day.tasks.length - 3} งาน</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">+{day.tasks.length - 3} งาน</p>
                     )}
                   </div>
                 )}
@@ -429,11 +429,11 @@ export default function CalendarPage() {
         {/* Legend */}
         <Card padding="sm">
           <div className="flex items-center gap-6">
-            <span className="text-sm font-medium text-gray-700">สถานะ:</span>
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">สถานะ:</span>
             {Object.values(TaskStatus).map((status) => (
               <div key={status} className="flex items-center gap-2">
                 <span className={`w-3 h-3 rounded-full ${getStatusColor(status)}`} />
-                <span className="text-sm text-gray-600">{STATUS_LABELS[status]}</span>
+                <span className="text-sm text-gray-600 dark:text-gray-400">{STATUS_LABELS[status]}</span>
               </div>
             ))}
           </div>
@@ -453,21 +453,21 @@ export default function CalendarPage() {
               <div className="space-y-3 max-h-[60vh] overflow-y-auto">
                 {selectedDay.tasks.map((task) => (
                   <Link key={task.id} href={`/tasks/${task.id}`}>
-                    <div className="p-4 border rounded-lg hover:bg-gray-50 transition-colors">
+                    <div className="p-4 border dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-medium text-gray-900 truncate">
+                            <h3 className="font-medium text-gray-900 dark:text-white truncate">
                               {task.title}
                             </h3>
                             <StatusBadge status={task.status} type="task" />
                           </div>
                           {task.description && (
-                            <p className="text-sm text-gray-500 line-clamp-2">
+                            <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2">
                               {task.description}
                             </p>
                           )}
-                          <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
+                          <div className="flex items-center gap-4 mt-2 text-sm text-gray-500 dark:text-gray-400">
                             {task.startTime && (
                               <span className="flex items-center gap-1">
                                 <Clock className="w-4 h-4" />
@@ -488,8 +488,8 @@ export default function CalendarPage() {
                 ))}
               </div>
             ) : (
-              <div className="text-center py-8 text-gray-500">
-                <CalendarIcon className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                <CalendarIcon className="w-12 h-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
                 <p>ไม่มีงานในวันนี้</p>
               </div>
             )}

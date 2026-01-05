@@ -39,19 +39,19 @@ const FloatingIndicator = memo(function FloatingIndicator({
       transition={circleTransition}
       style={{ top: '-24px' }}
     >
-      {/* Curved Holes - White theme */}
+      {/* Curved Holes - Theme-aware */}
       <div 
         className="absolute top-[24px] -left-[20px] w-[20px] h-[40px]"
         style={{
           borderTopRightRadius: '20px',
-          boxShadow: '8px -8px 0 8px white',
+          boxShadow: 'var(--bottom-nav-curve-shadow, 8px -8px 0 8px white)',
         }}
       />
       <div 
         className="absolute top-[24px] -right-[20px] w-[20px] h-[40px]"
         style={{
           borderTopLeftRadius: '20px',
-          boxShadow: '-8px -8px 0 8px white',
+          boxShadow: 'var(--bottom-nav-curve-shadow, -8px -8px 0 8px white)',
         }}
       />
 
@@ -165,12 +165,12 @@ export function BottomNav() {
   return (
     <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 px-4 pb-4 pt-2">
       {/* Background blur layer */}
-      <div className="absolute inset-0 bg-gradient-to-t from-gray-100/80 via-gray-50/40 to-transparent pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-t from-gray-100/80 dark:from-slate-900/80 via-gray-50/40 dark:via-slate-800/40 to-transparent pointer-events-none" />
       
       <div className="relative">
-        {/* Main Container - White theme matching PC sidebar */}
+        {/* Main Container - Theme-aware */}
         <div 
-          className="relative bg-white rounded-[24px] overflow-visible pt-5"
+          className="relative bg-white dark:bg-slate-800 rounded-[24px] overflow-visible pt-5"
           style={{ 
             boxShadow: '0 -4px 24px rgba(0,0,0,0.08), 0 4px 32px rgba(45, 91, 255, 0.1), inset 0 1px 0 rgba(255,255,255,0.9)'
           }}
@@ -194,7 +194,7 @@ export function BottomNav() {
           </div>
 
           {/* Bottom safe area indicator */}
-          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-32 h-1 bg-gray-200 rounded-full" />
+          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-32 h-1 bg-gray-200 dark:bg-slate-600 rounded-full" />
         </div>
       </div>
     </nav>

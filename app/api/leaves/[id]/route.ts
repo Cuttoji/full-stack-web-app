@@ -1,7 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { verifyToken, getTokenFromHeader, hasPermission, canApproveLeaveFor } from '@/lib/auth';
-import { ApiResponse, ApproveLeaveRequest, Leave, Role, LeaveApprovalChain } from '@/lib/types';
+import { ApiResponse, ApproveLeaveRequest, Leave, Role, LeaveStatus, LEAVE_TYPE_LABELS } from '@/lib/types';
+import { notifyLeaveApproved, notifyLeaveRejected } from '@/lib/notifications';
+import { notifyLeaveApprovalViaWebhook } from '@/lib/webhook';
+
+// Type for leave with included user
+interface LeaveWithUser {
+  id: string;
+  userId: string;
+  status: LeaveStatus | string;
+  totalDays: number;
+  user: {
+    id: string;
+    role: string;
+    supervisorId?: string | null;
+  };
+}
 
 // GET /api/leaves/[id] - Get leave by ID
 export async function GET(
@@ -31,6 +46,8 @@ export async function GET(
             email: true,
             employeeId: true,
             phone: true,
+            role: true,
+            supervisorId: true,
             leaveQuota: true,
             leaveUsed: true,
             subUnit: true,
@@ -39,6 +56,14 @@ export async function GET(
         },
         approvedBy: {
           select: { id: true, name: true },
+        },
+        approvalChain: {
+          include: {
+            approver: {
+              select: { id: true, name: true, role: true },
+            },
+          },
+          orderBy: { level: 'asc' },
         },
       },
     });
@@ -52,7 +77,7 @@ export async function GET(
 
     return NextResponse.json<ApiResponse<Leave>>({
       success: true,
-      data: leave as any,
+      data: leave as unknown as Leave,
     });
   } catch (error) {
     console.error('Get leave error:', error);
@@ -88,15 +113,21 @@ export async function PATCH(
       );
     }
 
-    const body: Omit<ApproveLeaveRequest, 'leaveId'> = await request.json();
-    const { approved, rejectedReason } = body;
+    const body: Omit<ApproveLeaveRequest, 'leaveId'> & { approverNote?: string } = await request.json();
+    const { approved, rejectedReason, approverNote } = body;
 
     const leave = await prisma.leave.findUnique({
       where: { id },
       include: {
-        user: true,
+        user: {
+          select: {
+            id: true,
+            role: true,
+            supervisorId: true,
+          },
+        },
       },
-    });
+    }) as LeaveWithUser | null;
 
     if (!leave) {
       return NextResponse.json<ApiResponse>(
@@ -110,7 +141,7 @@ export async function PATCH(
       currentUser.role as Role,
       currentUser.id,
       leave.user.role as Role,
-      (leave.user as any).supervisorId
+      leave.user.supervisorId ?? undefined
     );
 
     if (!canApprove) {
@@ -127,58 +158,98 @@ export async function PATCH(
       );
     }
 
-    const updatedLeave = await prisma.leave.update({
-      where: { id },
-      data: {
-        status: approved ? 'APPROVED' : 'REJECTED',
-        approvedById: currentUser.id,
-        approvedAt: new Date(),
-        rejectedReason: approved ? null : rejectedReason,
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            leaveQuota: true,
-            leaveUsed: true,
-          },
-        },
-        approvedBy: {
-          select: { id: true, name: true },
-        },
-      },
-    });
-
-    // Update user's leave used if approved
-    if (approved) {
-      await prisma.user.update({
-        where: { id: leave.userId },
+    // Start transaction for approval
+    const updatedLeave = await prisma.$transaction(async (tx) => {
+      // Create approval record in LeaveApproval chain
+      await tx.leaveApproval.create({
         data: {
-          leaveUsed: {
-            increment: leave.totalDays,
+          leaveId: id,
+          approverId: currentUser.id,
+          approverRole: currentUser.role as Role,
+          level: 1, // TODO: ปรับตาม approval level จริง
+          status: approved ? 'APPROVED' : 'REJECTED',
+          comment: approved ? approverNote : rejectedReason,
+          actionAt: new Date(),
+        },
+      });
+
+      // Update leave status
+      const updated = await tx.leave.update({
+        where: { id },
+        data: {
+          status: approved ? 'APPROVED' : 'REJECTED',
+          approvedById: currentUser.id,
+          approvedAt: new Date(),
+          rejectedReason: approved ? null : rejectedReason,
+          approverNote: approverNote || null,
+          currentApproverId: null, // Clear current approver
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              leaveQuota: true,
+              leaveUsed: true,
+            },
+          },
+          approvedBy: {
+            select: { id: true, name: true },
+          },
+          approvalChain: {
+            include: {
+              approver: {
+                select: { id: true, name: true, role: true },
+              },
+            },
+            orderBy: { level: 'asc' },
           },
         },
       });
+
+      // Update user's leave used if approved
+      if (approved) {
+        await tx.user.update({
+          where: { id: leave.userId },
+          data: {
+            leaveUsed: {
+              increment: leave.totalDays,
+            },
+          },
+        });
+      }
+
+      return updated;
+    });
+
+    // Notify user using notification service
+    if (approved) {
+      await notifyLeaveApproved(id, leave.userId, currentUser.name || 'ผู้อนุมัติ');
+    } else {
+      await notifyLeaveRejected(id, leave.userId, currentUser.name || 'ผู้อนุมัติ', rejectedReason);
     }
 
-    // Notify user
-    await prisma.notification.create({
-      data: {
-        userId: leave.userId,
-        title: approved ? 'คำขอลาได้รับการอนุมัติ' : 'คำขอลาไม่ได้รับการอนุมัติ',
-        message: approved
-          ? `คำขอลาของคุณได้รับการอนุมัติแล้ว`
-          : `คำขอลาของคุณไม่ได้รับการอนุมัติ: ${rejectedReason || ''}`,
-        type: 'LEAVE',
-        link: `/leaves/${id}`,
-      },
-    });
+    // Send via webhook (Power Automate, LINE, etc.)
+    if (updatedLeave.user.email) {
+      const leaveTypeLabel = LEAVE_TYPE_LABELS[updatedLeave.type as keyof typeof LEAVE_TYPE_LABELS] || updatedLeave.type;
+      await notifyLeaveApprovalViaWebhook(
+        updatedLeave.user.name,
+        updatedLeave.user.email,
+        currentUser.name || 'ผู้อนุมัติ',
+        currentUser.email || '',
+        leaveTypeLabel,
+        new Date(updatedLeave.startDate),
+        new Date(updatedLeave.endDate),
+        updatedLeave.totalDays,
+        approved,
+        rejectedReason
+      );
+    }
 
     return NextResponse.json<ApiResponse<Leave>>({
       success: true,
-      data: updatedLeave as any,
+      data: updatedLeave as unknown as Leave,
       message: approved ? 'อนุมัติการลาสำเร็จ' : 'ปฏิเสธการลาสำเร็จ',
     });
   } catch (error) {

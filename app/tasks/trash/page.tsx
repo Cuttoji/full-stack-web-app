@@ -148,11 +148,11 @@ export default function TrashPage() {
               </Button>
             </Link>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+              <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2 dark:text-white">
                 <Trash2 className="w-6 h-6 text-red-500" />
                 ถังขยะ
               </h1>
-              <p className="text-gray-900">งานที่ถูกลบจะถูกเก็บไว้ 30 วัน ก่อนลบถาวรอัตโนมัติ</p>
+              <p className="text-gray-900 dark:text-gray-400">งานที่ถูกลบจะถูกเก็บไว้ 30 วัน ก่อนลบถาวรอัตโนมัติ</p>
             </div>
           </div>
           {canManageTrash && deletedTasks.length > 0 && (
@@ -160,7 +160,7 @@ export default function TrashPage() {
               variant="outline"
               onClick={handleEmptyTrash}
               leftIcon={<Trash className="w-4 h-4" />}
-              className="text-red-600 border-red-200 hover:bg-red-50"
+              className="text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
             >
               ล้างถังขยะ
             </Button>
@@ -169,7 +169,7 @@ export default function TrashPage() {
 
         {/* Warning Banner */}
         <Card padding="sm" className="bg-amber-50 border-amber-200">
-          <div className="flex items-center gap-3 text-amber-700">
+          <div className="flex items-center gap-3 text-amber-600">
             <AlertTriangle className="w-5 h-5 flex-shrink-0" />
             <p className="text-sm">
               งานในถังขยะจะถูกลบถาวรโดยอัตโนมัติหลังจาก 30 วัน 
@@ -182,7 +182,7 @@ export default function TrashPage() {
         {isLoading ? (
           <div className="grid gap-4 grid-cols-1">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-24 bg-gray-100 rounded-lg animate-pulse" />
+              <div key={i} className="h-24 bg-gray-100 rounded-lg animate-pulse dark:bg-gray-700" />
             ))}
           </div>
         ) : deletedTasks.length > 0 ? (
@@ -196,7 +196,7 @@ export default function TrashPage() {
                     daysRemaining <= 7 
                       ? 'bg-red-100 text-red-700' 
                       : daysRemaining <= 14 
-                        ? 'bg-amber-100 text-amber-700'
+                        ? 'bg-amber-100 text-amber-200'
                         : 'bg-gray-100 text-gray-700'
                   }`}>
                     {daysRemaining <= 0 ? 'กำลังลบ...' : `เหลือ ${daysRemaining} วัน`}
@@ -217,8 +217,8 @@ export default function TrashPage() {
           <Card>
             <div className="text-center py-12">
               <Trash2 className="w-16 h-16 mx-auto mb-4 text-gray-400" />
-              <p className="text-lg font-medium text-gray-900">ถังขยะว่างเปล่า</p>
-              <p className="text-sm mt-1 text-gray-900">ไม่มีงานที่ถูกลบในขณะนี้</p>
+              <p className="text-lg font-medium text-gray-900 dark:text-white">ถังขยะว่างเปล่า</p>
+              <p className="text-sm mt-1 text-gray-900 dark:text-gray-400">ไม่มีงานที่ถูกลบในขณะนี้</p>
             </div>
           </Card>
         )}

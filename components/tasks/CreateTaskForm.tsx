@@ -52,7 +52,6 @@ export function CreateTaskForm({
     subUnitId: '',
     carId: '',
     assigneeIds: [],
-    priority: 1,
     notes: '',
   });
 
@@ -173,7 +172,6 @@ export function CreateTaskForm({
         subUnitId: '',
         carId: '',
         assigneeIds: [],
-        priority: 1,
         notes: '',
       });
       setValidationError('');
@@ -221,10 +219,10 @@ export function CreateTaskForm({
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="สร้างงานใหม่" size="lg">
-      <form onSubmit={handleSubmit} className="space-y-6 text-gray-800">
+      <form onSubmit={handleSubmit} className="space-y-6 text-gray-800 dark:text-gray-200">
         {/* Validation Error */}
         {validationError && (
-          <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
+          <div className="p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg text-red-600 dark:text-red-400 text-sm">
             ⚠️ {validationError}
           </div>
         )}
@@ -232,20 +230,20 @@ export function CreateTaskForm({
         {/* Task Type Selection */}
         {!taskType && (
           <div className="space-y-4">
-            <h3 className="text-lg font-medium text-gray-900 text-center">เลือกประเภทงาน</h3>
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white text-center">เลือกประเภทงาน</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <button
                 type="button"
                 onClick={() => setTaskType('single')}
-                className="p-6 border-2 border-gray-200 rounded-xl hover:border-blue-400 hover:bg-blue-50 transition-all group"
+                className="p-6 border-2 border-gray-200 dark:border-gray-600 rounded-xl hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all group"
               >
                 <div className="flex flex-col items-center gap-3">
                   <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center group-hover:bg-blue-200 transition-colors">
                     <Calendar className="w-8 h-8 text-blue-600" />
                   </div>
                   <div className="text-center">
-                    <p className="font-semibold text-gray-900">งานรายวัน</p>
-                    <p className="text-sm text-gray-500 mt-1">งานที่ทำครั้งเดียว หรือช่วงสั้นๆ</p>
+                    <p className="font-semibold text-gray-900 dark:text-white">งานรายวัน</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">งานที่ทำครั้งเดียว หรือช่วงสั้นๆ</p>
                   </div>
                 </div>
               </button>
@@ -253,15 +251,15 @@ export function CreateTaskForm({
               <button
                 type="button"
                 onClick={() => setTaskType('recurring')}
-                className="p-6 border-2 border-gray-200 rounded-xl hover:border-green-400 hover:bg-green-50 transition-all group"
+                className="p-6 border-2 border-gray-200 dark:border-gray-600 rounded-xl hover:border-green-400 hover:bg-green-50 dark:hover:bg-green-900/30 transition-all group"
               >
                 <div className="flex flex-col items-center gap-3">
                   <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center group-hover:bg-green-200 transition-colors">
                     <Repeat className="w-8 h-8 text-green-600" />
                   </div>
                   <div className="text-center">
-                    <p className="font-semibold text-gray-900">งานระยะยาว / วนซ้ำ</p>
-                    <p className="text-sm text-gray-500 mt-1">งานที่ต้องทำซ้ำเป็นประจำ</p>
+                    <p className="font-semibold text-gray-900 dark:text-white">งานระยะยาว / วนซ้ำ</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">งานที่ต้องทำซ้ำเป็นประจำ</p>
                   </div>
                 </div>
               </button>
@@ -276,8 +274,8 @@ export function CreateTaskForm({
             <div className="flex items-center justify-between">
               <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium ${
                 taskType === 'single' 
-                  ? 'bg-blue-100 text-blue-700' 
-                  : 'bg-green-100 text-green-700'
+                  ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300' 
+                  : 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300'
               }`}>
                 {taskType === 'single' ? (
                   <><Calendar className="w-4 h-4" /> งานรายวัน</>
@@ -288,7 +286,7 @@ export function CreateTaskForm({
               <button
                 type="button"
                 onClick={() => setTaskType(null)}
-                className="text-sm text-gray-500 hover:text-gray-700 underline"
+                className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 underline"
               >
                 เปลี่ยนประเภท
               </button>
@@ -337,9 +335,9 @@ export function CreateTaskForm({
             {/* Date & Time Section - Different UI based on task type */}
             {taskType === 'single' ? (
               /* Single Task Date Section */
-              <div className="p-4 bg-blue-50 rounded-lg border border-blue-100">
-                <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-blue-600" />
+              <div className="p-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-100 dark:border-blue-800">
+                <h4 className="font-medium text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                   กำหนดวันและเวลา
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -353,7 +351,7 @@ export function CreateTaskForm({
                       required
                     />
                     {formData.startDate && (
-                      <p className="mt-1 text-xs text-blue-600">
+                      <p className="mt-1 text-xs text-blue-600 dark:text-blue-400">
                         📅 วัน{getDayName(formData.startDate)}
                       </p>
                     )}
@@ -387,9 +385,9 @@ export function CreateTaskForm({
               </div>
             ) : (
               /* Recurring Task Date Section */
-              <div className="p-4 bg-green-50 rounded-lg border border-green-100">
-                <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-                  <Repeat className="w-4 h-4 text-green-600" />
+              <div className="p-4 bg-green-50 dark:bg-green-900/30 rounded-lg border border-green-100 dark:border-green-800">
+                <h4 className="font-medium text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                  <Repeat className="w-4 h-4 text-green-600 dark:text-green-400" />
                   กำหนดการวนซ้ำ
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -403,7 +401,7 @@ export function CreateTaskForm({
                       required
                     />
                     {formData.startDate && (
-                      <p className="mt-1 text-xs text-green-600">
+                      <p className="mt-1 text-xs text-green-600 dark:text-green-400">
                         📅 เริ่มวัน{getDayName(formData.startDate)}
                       </p>
                     )}
@@ -423,7 +421,7 @@ export function CreateTaskForm({
                       placeholder="เลือกรูปแบบ"
                     />
                     {smartPatternLabel && (
-                      <p className="mt-1 text-xs text-green-600 font-medium">
+                      <p className="mt-1 text-xs text-green-600 dark:text-green-400 font-medium">
                         🔄 {smartPatternLabel}
                       </p>
                     )}
@@ -456,7 +454,7 @@ export function CreateTaskForm({
                     />
                   </div>
                 </div>
-                <p className="text-xs text-gray-500 mt-3 flex items-center gap-1">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 flex items-center gap-1">
                   <span className="text-amber-500">ℹ️</span>
                   งานวนซ้ำจะข้ามวันอาทิตย์โดยอัตโนมัติ
                 </p>
@@ -493,7 +491,7 @@ export function CreateTaskForm({
 
               {/* Technician Selection with Search */}
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-900 mb-2">
+                <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">
                   มอบหมายให้
                 </label>
                 
@@ -503,13 +501,13 @@ export function CreateTaskForm({
                     {selectedTechnicians.map((tech) => (
                       <span
                         key={tech.id}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-100 text-blue-700 rounded-full text-sm font-medium"
+                        className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-full text-sm font-medium"
                       >
                         {tech.name}
                         <button
                           type="button"
                           onClick={() => removeTechnician(tech.id)}
-                          className="ml-1 hover:bg-blue-200 rounded-full p-0.5 transition-colors"
+                          className="ml-1 hover:bg-blue-200 dark:hover:bg-blue-800 rounded-full p-0.5 transition-colors"
                         >
                           <X className="w-3.5 h-3.5" />
                         </button>
@@ -526,12 +524,12 @@ export function CreateTaskForm({
                     placeholder="ค้นหาชื่อช่าง..."
                     value={technicianSearch}
                     onChange={(e) => setTechnicianSearch(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
                   />
                 </div>
 
                 {/* Available Technicians */}
-                <div className="flex flex-wrap gap-2 p-3 bg-gray-50 rounded-lg border border-gray-200 max-h-32 overflow-y-auto">
+                <div className="flex flex-wrap gap-2 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 max-h-32 overflow-y-auto">
                   {filteredTechnicians.length > 0 ? (
                     filteredTechnicians.map((tech) => {
                       const isSelected = (formData.assigneeIds || []).includes(tech.id);
@@ -543,7 +541,7 @@ export function CreateTaskForm({
                           className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
                             isSelected
                               ? 'bg-blue-500 text-white shadow-sm'
-                              : 'bg-white text-gray-700 border border-gray-300 hover:border-blue-400 hover:text-blue-600'
+                              : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:border-blue-400 hover:text-blue-600 dark:hover:text-blue-400'
                           }`}
                         >
                           {tech.name}
@@ -556,12 +554,12 @@ export function CreateTaskForm({
                       );
                     })
                   ) : (
-                    <p className="text-gray-400 text-sm">
+                    <p className="text-gray-400 dark:text-gray-500 text-sm">
                       {technicianSearch ? 'ไม่พบช่างที่ค้นหา' : 'ไม่มีรายชื่อช่าง'}
                     </p>
                   )}
                 </div>
-                <p className="mt-1 text-xs text-gray-500">
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                   คลิกเพื่อเลือก/ยกเลิกช่าง
                 </p>
               </div>
@@ -570,7 +568,7 @@ export function CreateTaskForm({
             {/* Description & Notes */}
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-1">
+                <label className="block text-sm font-medium text-gray-900 dark:text-white mb-1">
                   รายละเอียดงาน
                 </label>
                 <textarea
@@ -578,13 +576,32 @@ export function CreateTaskForm({
                   value={formData.description || ''}
                   onChange={handleChange}
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
                   placeholder="ระบุรายละเอียดงาน..."
                 />
               </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-900 dark:text-white mb-1">
+                  <span className="flex items-center gap-1">
+                    📄 รายละเอียดเอกสารที่ต้องตรวจสอบ
+                  </span>
+                </label>
+                <textarea
+                  name="documentDetails"
+                  value={formData.documentDetails || ''}
+                  onChange={handleChange}
+                  rows={2}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
+                  placeholder="เช่น: ใบเสร็จ, ใบส่งมอบงาน, รูปภาพก่อน-หลัง..."
+                />
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  ระบุเอกสารที่ช่างต้องตรวจสอบก่อนจบงาน
+                </p>
+              </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-1">
+                <label className="block text-sm font-medium text-gray-900 dark:text-white mb-1">
                   หมายเหตุ
                 </label>
                 <textarea
@@ -592,14 +609,14 @@ export function CreateTaskForm({
                   value={formData.notes || ''}
                   onChange={handleChange}
                   rows={2}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
                   placeholder="หมายเหตุเพิ่มเติม..."
                 />
               </div>
             </div>
 
             {/* Actions */}
-            <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+            <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
               <Button type="button" variant="secondary" onClick={onClose}>
                 ยกเลิก
               </Button>

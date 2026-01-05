@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactNode, useState } from 'react';
 import { AuthProvider } from './AuthContext';
 import { OfflineProvider } from './OfflineContext';
+import { ThemeProvider } from './ThemeContext';
 import { Toaster } from '@/components/ui/Toaster';
 
 export function Providers({ children }: { children: ReactNode }) {
@@ -23,12 +24,14 @@ export function Providers({ children }: { children: ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <OfflineProvider>
-          {children}
-          <Toaster />
-        </OfflineProvider>
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <OfflineProvider>
+            {children}
+            <Toaster />
+          </OfflineProvider>
+        </AuthProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }

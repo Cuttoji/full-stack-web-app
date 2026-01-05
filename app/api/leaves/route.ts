@@ -13,6 +13,7 @@ import {
   DefaultRoleScope, 
   LeaveApprovalChain,
   LEAVE_TYPE_CONFIGS,
+  LEAVE_TYPE_LABELS,
   AuthUser,
 } from '@/lib/types';
 import prisma from '@/lib/prisma';
@@ -22,6 +23,8 @@ import {
   calculateLeaveDays,
   isValidDurationType,
 } from '@/lib/leaveQuota';
+import { notifyLeaveRequest } from '@/lib/notifications';
+import { notifyLeaveRequestViaWebhook } from '@/lib/webhook';
 
 // GET /api/leaves - Get leaves (with filters)
 export const GET = withAuth(async (request: NextRequest, currentUser: AuthUser) => {
@@ -36,8 +39,12 @@ export const GET = withAuth(async (request: NextRequest, currentUser: AuthUser) 
     // Build where clause based on user permissions
     const userScope = DefaultRoleScope[currentUser.role as Role];
     
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const whereClause: any = {};
+    // Prisma where clause - use Prisma's type system
+    const whereClause: {
+      status?: LeaveStatus;
+      userId?: string | { in: string[] };
+      currentApproverId?: string;
+    } = {};
 
     if (status) {
       whereClause.status = status;
@@ -76,7 +83,7 @@ export const GET = withAuth(async (request: NextRequest, currentUser: AuthUser) 
 
     // Filter pending approval - only show leaves awaiting approval from current user
     if (pendingApproval) {
-      whereClause.status = 'PENDING';
+      whereClause.status = LeaveStatus.PENDING;
       whereClause.currentApproverId = currentUser.id;
     }
 
@@ -216,9 +223,12 @@ export const POST = withAuth(async (request: NextRequest, currentUser: AuthUser)
       },
     });
 
-    // Calculate leave balance
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const userAny = user as any;
+    // Calculate leave balance - use typed user properties
+    const userWithDates = user as typeof user & {
+      employmentStartDate?: Date | null;
+      birthMonth?: number | null;
+    };
+    
     const balance = getUserLeaveBalance(
       currentUser.id,
       userLeaves.map(l => ({
@@ -226,8 +236,8 @@ export const POST = withAuth(async (request: NextRequest, currentUser: AuthUser)
         approvedById: l.approvedById ?? undefined,
         approvedAt: l.approvedAt ?? undefined,
       })) as Leave[],
-      userAny.employmentStartDate || new Date(new Date().setFullYear(new Date().getFullYear() - 1)),
-      userAny.birthMonth ?? undefined,
+      userWithDates.employmentStartDate || new Date(new Date().setFullYear(new Date().getFullYear() - 1)),
+      userWithDates.birthMonth ?? undefined,
       new Date(startDate).getFullYear()
     );
 
@@ -267,26 +277,23 @@ export const POST = withAuth(async (request: NextRequest, currentUser: AuthUser)
       }
     }
 
-    // Create leave request
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const leaveData: any = {
-      userId: currentUser.id,
-      type,
-      status: 'PENDING',
-      startDate: new Date(startDate),
-      endDate: new Date(endDate),
-      totalDays: calculatedTotalDays,
-      reason: reason || null,
-      durationType,
-      halfDayPeriod: halfDayPeriod || null,
-      startTime: startTime || null,
-      endTime: endTime || null,
-      currentApproverId,
-      approvalLevel: 1,
-    };
-    
+    // Create leave request with proper typing
     const newLeave = await prisma.leave.create({
-      data: leaveData,
+      data: {
+        userId: currentUser.id,
+        type,
+        status: 'PENDING',
+        startDate: new Date(startDate),
+        endDate: new Date(endDate),
+        totalDays: calculatedTotalDays,
+        reason: reason || null,
+        durationType,
+        halfDayPeriod: halfDayPeriod || null,
+        startTime: startTime || null,
+        endTime: endTime || null,
+        currentApproverId,
+        approvalLevel: 1,
+      },
       include: {
         user: {
           select: {
@@ -299,6 +306,41 @@ export const POST = withAuth(async (request: NextRequest, currentUser: AuthUser)
         approvalChain: true,
       },
     });
+
+    // Send notification to approver
+    if (currentApproverId) {
+      const leaveTypeLabel = LEAVE_TYPE_LABELS[type as keyof typeof LEAVE_TYPE_LABELS] || type;
+      
+      // In-app notification
+      await notifyLeaveRequest(
+        newLeave.id,
+        newLeave.user.name,
+        leaveTypeLabel,
+        new Date(startDate),
+        new Date(endDate),
+        [currentApproverId]
+      );
+
+      // Send via webhook (Power Automate, LINE, etc.)
+      const approver = await prisma.user.findUnique({
+        where: { id: currentApproverId },
+        select: { email: true, name: true },
+      });
+
+      if (approver?.email) {
+        await notifyLeaveRequestViaWebhook(
+          newLeave.user.name,
+          newLeave.user.email,
+          approver.name,
+          approver.email,
+          leaveTypeLabel,
+          new Date(startDate),
+          new Date(endDate),
+          calculatedTotalDays,
+          reason || ''
+        );
+      }
+    }
 
     // Return with warnings if any
     const responseData: { leave: typeof newLeave; warnings?: string[] } = {

@@ -157,7 +157,6 @@ export async function getTasksOptimized(options: {
         location: true,
         customerName: true,
         status: true,
-        priority: true,
         startDate: true,
         endDate: true,
         scheduledDate: true,
@@ -186,7 +185,6 @@ export async function getTasksOptimized(options: {
       skip: (page - 1) * limit,
       take: limit,
       orderBy: [
-        { priority: 'desc' },
         { startDate: 'asc' },
       ],
     }),
@@ -280,7 +278,6 @@ export async function getDashboardStats(userId: string, role: string) {
             title: true,
             startDate: true,
             status: true,
-            priority: true,
           },
           take: 5,
           orderBy: { startDate: 'asc' },

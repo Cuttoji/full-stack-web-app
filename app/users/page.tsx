@@ -309,9 +309,9 @@ export default function UsersPage() {
     return (
       <DashboardLayout>
         <div className="text-center py-12">
-          <Shield className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-          <p className="text-lg font-medium text-gray-600">ไม่มีสิทธิ์เข้าถึง</p>
-          <p className="text-sm text-gray-500">หน้านี้สำหรับ Admin เท่านั้น</p>
+          <Shield className="w-12 h-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
+          <p className="text-lg font-medium text-gray-600 dark:text-gray-300">ไม่มีสิทธิ์เข้าถึง</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">หน้านี้สำหรับ Admin เท่านั้น</p>
         </div>
       </DashboardLayout>
     );
@@ -319,12 +319,12 @@ export default function UsersPage() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6 text-gray-800 mt-8">
+      <div className="space-y-6 text-gray-800 dark:text-gray-200 mt-8">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">จัดการผู้ใช้</h1>
-            <p className="text-gray-700">ดูและจัดการผู้ใช้ทั้งหมดในระบบ</p>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">จัดการผู้ใช้</h1>
+            <p className="text-gray-500 dark:text-gray-400">ดูและจัดการผู้ใช้ทั้งหมดในระบบ</p>
           </div>
           <Button
             onClick={() => {
@@ -338,13 +338,13 @@ export default function UsersPage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-2 border-b border-gray-200">
+        <div className="flex gap-2 border-b border-gray-200 dark:border-gray-700">
           <button
             onClick={() => setActiveTab('all')}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
               activeTab === 'all'
                 ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
             }`}
           >
             <UsersIcon className="w-4 h-4 inline-block mr-2" />
@@ -355,7 +355,7 @@ export default function UsersPage() {
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
               activeTab === 'daily'
                 ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
             }`}
           >
             <Calendar className="w-4 h-4 inline-block mr-2" />
@@ -376,7 +376,7 @@ export default function UsersPage() {
                   placeholder="ค้นหาชื่อ, อีเมล..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
                 />
               </div>
             </div>
@@ -385,7 +385,7 @@ export default function UsersPage() {
               <select
                 value={roleFilter}
                 onChange={(e) => setRoleFilter(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
               >
                 <option value="">ทุกตำแหน่ง</option>
                 {Object.values(Role).map((role) => (
@@ -398,7 +398,7 @@ export default function UsersPage() {
               <select
                 value={departmentFilter}
                 onChange={(e) => setDepartmentFilter(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
               >
                 <option value="">ทุกแผนก</option>
                 {departments.map((dept) => (
@@ -413,54 +413,54 @@ export default function UsersPage() {
 
         {/* Users List */}
         {isLoading ? (
-          <div className="space-y-4 text-gray-800">
+          <div className="space-y-4">
             {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="h-20 bg-gray-100 rounded-lg animate-pulse" />
+              <div key={i} className="h-20 bg-gray-100 dark:bg-gray-700 rounded-lg animate-pulse" />
             ))}
           </div>
         ) : users.length > 0 ? (
           <Card padding="none">
-            <div className="overflow-x-auto text-gray-800">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-gray-50 dark:bg-slate-800">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                       ผู้ใช้
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                       ตำแหน่ง
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                       แผนก
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                       วันลา
                     </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                       จัดการ
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200 dark:divide-gray-700">
                   {users.map((u) => (
-                    <tr key={u.id} className="hover:bg-gray-50">
+                    <tr key={u.id} className="hover:bg-gray-50 dark:hover:bg-slate-700">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="flex-shrink-0 h-10 w-10">
-                            <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                              <span className="text-blue-600 font-medium">
+                            <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
+                              <span className="text-blue-600 dark:text-blue-300 font-medium">
                                 {u.name.charAt(0).toUpperCase()}
                               </span>
                             </div>
                           </div>
                           <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">{u.name}</div>
-                            <div className="text-sm text-gray-700 flex items-center gap-1">
+                            <div className="text-sm font-medium text-gray-900 dark:text-white">{u.name}</div>
+                            <div className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
                               <Mail className="w-3 h-3" />
                               {u.email}
                             </div>
                             {u.phone && (
-                              <div className="text-sm text-gray-700 flex items-center gap-1">
+                              <div className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
                                 <Phone className="w-3 h-3" />
                                 {u.phone}
                               </div>
@@ -476,12 +476,12 @@ export default function UsersPage() {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{u.department?.name || '-'}</div>
+                        <div className="text-sm text-gray-900 dark:text-white">{u.department?.name || '-'}</div>
                         {u.subUnit && (
-                          <div className="text-xs text-gray-700">{u.subUnit.name}</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">{u.subUnit.name}</div>
                         )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
                         {u.leaveQuota} วัน
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -509,9 +509,9 @@ export default function UsersPage() {
           </Card>
         ) : (
           <Card>
-            <div className="text-center py-12 text-gray-500">
-              <UsersIcon className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-              <p className="text-lg font-medium">ไม่พบผู้ใช้</p>
+            <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+              <UsersIcon className="w-12 h-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
+              <p className="text-lg font-medium text-gray-900 dark:text-white">ไม่พบผู้ใช้</p>
               <p className="text-sm">ลองเปลี่ยนตัวกรองหรือเพิ่มผู้ใช้ใหม่</p>
             </div>
           </Card>
@@ -527,7 +527,7 @@ export default function UsersPage() {
             >
               ก่อนหน้า
             </Button>
-            <span className="px-4 py-2 text-gray-600">
+            <span className="px-4 py-2 text-gray-600 dark:text-gray-300">
               หน้า {page} จาก {totalPages}
             </span>
             <Button
@@ -545,15 +545,15 @@ export default function UsersPage() {
           <Card>
             <div className="space-y-6">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-900">จัดช่างประจำวัน</h2>
-                <p className="text-sm text-gray-500">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">จัดช่างประจำวัน</h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
                   วันนี้: {new Date().toLocaleDateString('th-TH', { weekday: 'long', day: 'numeric', month: 'long' })}
                 </p>
               </div>
 
               {/* Weekly Schedule */}
               <div className="space-y-3">
-                <h3 className="text-sm font-medium text-gray-700">ตารางช่างประจำสัปดาห์ (จันทร์ - เสาร์)</h3>
+                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">ตารางช่างประจำสัปดาห์ (จันทร์ - เสาร์)</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-3">
                   {[
                     { key: 'monday', label: 'จันทร์', shortLabel: 'จ.' },
@@ -569,19 +569,19 @@ export default function UsersPage() {
                         key={day.key}
                         className={`p-3 rounded-lg border ${
                           isToday 
-                            ? 'bg-blue-50 border-blue-300 ring-2 ring-blue-200' 
-                            : 'bg-gray-50 border-gray-200'
+                            ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700 ring-2 ring-blue-200 dark:ring-blue-800' 
+                            : 'bg-gray-50 dark:bg-slate-800 border-gray-200 dark:border-gray-700'
                         }`}
                       >
-                        <label className={`block text-xs font-semibold mb-2 ${isToday ? 'text-blue-700' : 'text-gray-600'}`}>
+                        <label className={`block text-xs font-semibold mb-2 ${isToday ? 'text-blue-700 dark:text-blue-300' : 'text-gray-600 dark:text-gray-400'}`}>
                           {day.label}
-                          {isToday && <span className="ml-1 text-blue-500">(วันนี้)</span>}
+                          {isToday && <span className="ml-1 text-blue-500 dark:text-blue-400">(วันนี้)</span>}
                         </label>
                         <select
                           value={weeklySchedule[day.key] || ''}
                           onChange={(e) => setWeeklySchedule({ ...weeklySchedule, [day.key]: e.target.value })}
                           className={`w-full px-2 py-1.5 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                            isToday ? 'border-blue-300 bg-white' : 'border-gray-300 bg-white'
+                            isToday ? 'border-blue-300 dark:border-blue-600 bg-white dark:bg-gray-700 dark:text-white' : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-white'
                           }`}
                         >
                           <option value="">-- เลือกช่าง --</option>
@@ -613,47 +613,47 @@ export default function UsersPage() {
                 
                 if (isSunday) {
                   return (
-                    <div className="p-4 bg-gray-100 border border-gray-300 rounded-lg">
-                      <h4 className="text-sm font-medium text-gray-600 mb-2 flex items-center gap-2">
+                    <div className="p-4 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg">
+                      <h4 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2 flex items-center gap-2">
                         <Calendar className="w-4 h-4" />
                         วันอาทิตย์ - หยุดทำการ
                       </h4>
-                      <p className="text-sm text-gray-500">วันนี้ไม่มีช่างประจำวัน (วันหยุด)</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">วันนี้ไม่มีช่างประจำวัน (วันหยุด)</p>
                     </div>
                   );
                 }
                 
                 return (
-                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <h4 className="text-sm font-medium text-blue-800 mb-2 flex items-center gap-2">
+                  <div className="p-4 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg">
+                    <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-2 flex items-center gap-2">
                       <UsersIcon className="w-4 h-4" />
                       ช่างประจำวันนี้
                     </h4>
                     {todayTech ? (
                       <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                          <span className="text-blue-600 font-medium">
+                        <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-800 flex items-center justify-center">
+                          <span className="text-blue-600 dark:text-blue-300 font-medium">
                             {todayTech.name.charAt(0).toUpperCase()}
                           </span>
                         </div>
                         <div>
-                          <p className="font-medium text-blue-900">{todayTech.name}</p>
-                          <p className="text-xs text-blue-600">
+                          <p className="font-medium text-blue-900 dark:text-white">{todayTech.name}</p>
+                          <p className="text-xs text-blue-600 dark:text-blue-400">
                             {todayTech.subUnit?.name || todayTech.department?.name || 'ไม่ระบุแผนก'}
                           </p>
                         </div>
                       </div>
                     ) : (
-                      <p className="text-sm text-blue-600">ยังไม่ได้กำหนดช่างประจำวันนี้</p>
+                      <p className="text-sm text-blue-600 dark:text-blue-400">ยังไม่ได้กำหนดช่างประจำวันนี้</p>
                     )}
                   </div>
                 );
               })()}
 
               {/* Temporary Assignment */}
-              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div className="p-4 bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800 rounded-lg">
                 <div className="flex items-center justify-between mb-3">
-                  <label className="text-sm font-medium text-yellow-800">
+                  <label className="text-sm font-medium text-yellow-800 dark:text-yellow-300">
                     <AlertTriangle className="w-4 h-4 inline-block mr-2" />
                     มอบหมายช่างชั่วคราว (วันนี้เท่านั้น)
                   </label>
@@ -673,7 +673,7 @@ export default function UsersPage() {
                     <select
                       value={tempTechnicianId}
                       onChange={(e) => setTempTechnicianId(e.target.value)}
-                      className="w-full px-3 py-2 border border-yellow-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 bg-white"
+                      className="w-full px-3 py-2 border border-yellow-300 dark:border-yellow-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 bg-white dark:bg-gray-700 dark:text-white"
                     >
                       <option value="">-- เลือกช่างชั่วคราว --</option>
                       {users.filter(u => u.role === Role.TECH || u.role === Role.LEADER).map((tech) => (
@@ -682,7 +682,7 @@ export default function UsersPage() {
                         </option>
                       ))}
                     </select>
-                    <p className="text-xs text-yellow-700 mt-2">
+                    <p className="text-xs text-yellow-700 dark:text-yellow-400 mt-2">
                       ⚠️ ช่างชั่วคราวจะได้รับสิทธิ์แทนช่างประจำวันนี้ และจะกลับไปใช้ช่างเดิมเมื่อสิ้นสุดวัน
                     </p>
                   </>
@@ -690,7 +690,7 @@ export default function UsersPage() {
               </div>
 
               {/* Save Button */}
-              <div className="flex gap-3 pt-4 border-t">
+              <div className="flex gap-3 pt-4 border-t dark:border-gray-700">
                 <Button variant="outline" className="flex-1" onClick={() => {
                   setWeeklySchedule({
                     monday: '',
@@ -727,23 +727,23 @@ export default function UsersPage() {
         title={isEditModalOpen ? 'แก้ไขผู้ใช้' : 'เพิ่มผู้ใช้ใหม่'}
         size="lg"
       >
-        <div className="space-y-4 text-gray-800">
+        <div className="space-y-4 text-gray-800 dark:text-gray-200">
           {formError && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+            <div className="p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-300 text-sm">
               {formError}
             </div>
           )}
 
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 ชื่อ-นามสกุล <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                 placeholder="ชื่อ นามสกุล"
               />
             </div>
@@ -752,27 +752,27 @@ export default function UsersPage() {
             {!isEditModalOpen && (
               <>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     อีเมล <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="email"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                     placeholder="email@example.com"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     รหัสผ่าน <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="password"
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                     placeholder="••••••••"
                   />
                 </div>
@@ -780,13 +780,13 @@ export default function UsersPage() {
             )}
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 ตำแหน่ง <span className="text-red-500">*</span>
               </label>
               <select
                 value={formData.role}
                 onChange={(e) => setFormData({ ...formData, role: e.target.value as Role })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
               >
                 {Object.values(Role).map((role) => (
                   <option key={role} value={role}>
@@ -797,13 +797,13 @@ export default function UsersPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 แผนก <span className="text-red-500">*</span>
               </label>
               <select
                 value={formData.departmentId}
                 onChange={(e) => setFormData({ ...formData, departmentId: e.target.value, subUnitId: undefined })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
               >
                 <option value="">เลือกแผนก</option>
                 {departments.map((dept) => (
@@ -815,11 +815,11 @@ export default function UsersPage() {
             </div>
 
             <div className="col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">กลุ่มงาน</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">กลุ่มงาน</label>
               <select
                 value={formData.subUnitId || ''}
                 onChange={(e) => setFormData({ ...formData, subUnitId: e.target.value || undefined })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                 disabled={!formData.departmentId}
               >
                 <option value="">ไม่มี</option>
@@ -834,18 +834,18 @@ export default function UsersPage() {
 
           {/* Permissions Section */}
           {isEditModalOpen && selectedUser && (
-            <div className="border-t pt-4 mt-4">
-              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <div className="border-t dark:border-gray-700 pt-4 mt-4">
+              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-900 dark:text-white">
                 <Shield className="w-5 h-5" />
                 สิทธิ์การใช้งาน
               </h3>
               
               <div className="space-y-4">
                 {/* Manage Tasks (Combined) */}
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                   <div>
-                    <p className="text-sm font-medium text-gray-900">จัดการงาน</p>
-                    <p className="text-xs text-gray-600">เพิ่ม แก้ไขรายละเอียด และมอบหมายงาน</p>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">จัดการงาน</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">เพิ่ม แก้ไขรายละเอียด และมอบหมายงาน</p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input
@@ -862,10 +862,10 @@ export default function UsersPage() {
                 </div>
 
                 {/* Approve Leave */}
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                   <div>
-                    <p className="text-sm font-medium text-gray-900">อนุมัติลา</p>
-                    <p className="text-xs text-gray-600">อนุมัติหรือปฏิเสธคำขอลา</p>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">อนุมัติลา</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">อนุมัติหรือปฏิเสธคำขอลา</p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input
@@ -882,10 +882,10 @@ export default function UsersPage() {
                 </div>
 
                 {/* Approve Documents */}
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                   <div>
-                    <p className="text-sm font-medium text-gray-900">อนุมัติเอกสาร</p>
-                    <p className="text-xs text-gray-600">อนุมัติหรือปฏิเสธเอกสารต่างๆ</p>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">อนุมัติเอกสาร</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">อนุมัติหรือปฏิเสธเอกสารต่างๆ</p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input
@@ -902,10 +902,10 @@ export default function UsersPage() {
                 </div>
 
                 {/* Manage Fleet */}
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                   <div>
-                    <p className="text-sm font-medium text-gray-900">จัดการรถทั้งหมด</p>
-                    <p className="text-xs text-gray-600">เพิ่ม แก้ไข ลบ และจัดสรรรถ</p>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">จัดการรถทั้งหมด</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">เพิ่ม แก้ไข ลบ และจัดสรรรถ</p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input
@@ -922,10 +922,10 @@ export default function UsersPage() {
                 </div>
 
                 {/* Manage Users */}
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                   <div>
-                    <p className="text-sm font-medium text-gray-900">จัดการผู้ใช้</p>
-                    <p className="text-xs text-gray-600">เพิ่ม แก้ไข และลบผู้ใช้ในระบบ</p>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">จัดการผู้ใช้</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">เพิ่ม แก้ไข และลบผู้ใช้ในระบบ</p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input
@@ -942,10 +942,10 @@ export default function UsersPage() {
                 </div>
 
                 {/* Manage Daily Technician */}
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                   <div>
-                    <p className="text-sm font-medium text-gray-900">ปรับเปลี่ยนช่างประจำวัน</p>
-                    <p className="text-xs text-gray-600">มอบหมายและปรับเปลี่ยนช่างประจำวัน</p>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">ปรับเปลี่ยนช่างประจำวัน</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">มอบหมายและปรับเปลี่ยนช่างประจำวัน</p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input
@@ -964,7 +964,7 @@ export default function UsersPage() {
             </div>
           )}
 
-          <div className="flex gap-3 pt-4 border-t">
+          <div className="flex gap-3 pt-4 border-t dark:border-gray-700">
             <Button
               variant="outline"
               className="flex-1"
@@ -999,11 +999,11 @@ export default function UsersPage() {
         title="ยืนยันการลบ"
       >
         <div className="space-y-4">
-          <div className="flex items-center gap-3 p-4 bg-red-50 rounded-lg">
+          <div className="flex items-center gap-3 p-4 bg-red-50 dark:bg-red-900/30 rounded-lg">
             <AlertTriangle className="w-6 h-6 text-red-500" />
             <div>
-              <p className="font-medium text-red-900">คุณต้องการลบผู้ใช้นี้หรือไม่?</p>
-              <p className="text-sm text-red-700">{selectedUser?.name} ({selectedUser?.email})</p>
+              <p className="font-medium text-red-900 dark:text-red-300">คุณต้องการลบผู้ใช้นี้หรือไม่?</p>
+              <p className="text-sm text-red-700 dark:text-red-400">{selectedUser?.name} ({selectedUser?.email})</p>
             </div>
           </div>
 
