@@ -64,7 +64,7 @@ export const GET = withAuth(async (request: NextRequest, currentUser: AuthUser) 
         where: { subUnitId: currentUser.subUnitId },
         select: { id: true },
       });
-      const teamUserIds = teamUsers.map(u => u.id);
+      const teamUserIds = teamUsers.map((u: { id: string }) => u.id);
       if (!userId) {
         whereClause.userId = { in: teamUserIds };
       }
@@ -74,7 +74,7 @@ export const GET = withAuth(async (request: NextRequest, currentUser: AuthUser) 
         where: { departmentId: currentUser.departmentId },
         select: { id: true },
       });
-      const deptUserIds = deptUsers.map(u => u.id);
+      const deptUserIds = deptUsers.map((u: { id: string }) => u.id);
       if (!userId) {
         whereClause.userId = { in: deptUserIds };
       }
