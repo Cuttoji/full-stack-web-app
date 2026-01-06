@@ -158,70 +158,65 @@ export async function PATCH(
       );
     }
 
-    // Start transaction for approval
-    const updatedLeave = await prisma.$transaction(async (tx) => {
-      // Create approval record in LeaveApproval chain
-      await tx.leaveApproval.create({
-        data: {
-          leaveId: id,
-          approverId: currentUser.id,
-          approverRole: currentUser.role as Role,
-          level: 1, // TODO: ปรับตาม approval level จริง
-          status: approved ? 'APPROVED' : 'REJECTED',
-          comment: approved ? approverNote : rejectedReason,
-          actionAt: new Date(),
-        },
-      });
-
-      // Update leave status
-      const updated = await tx.leave.update({
-        where: { id },
-        data: {
-          status: approved ? 'APPROVED' : 'REJECTED',
-          approvedById: currentUser.id,
-          approvedAt: new Date(),
-          rejectedReason: approved ? null : rejectedReason,
-          approverNote: approverNote || null,
-          currentApproverId: null, // Clear current approver
-        },
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              leaveQuota: true,
-              leaveUsed: true,
-            },
-          },
-          approvedBy: {
-            select: { id: true, name: true },
-          },
-          approvalChain: {
-            include: {
-              approver: {
-                select: { id: true, name: true, role: true },
-              },
-            },
-            orderBy: { level: 'asc' },
-          },
-        },
-      });
-
-      // Update user's leave used if approved
-      if (approved) {
-        await tx.user.update({
-          where: { id: leave.userId },
-          data: {
-            leaveUsed: {
-              increment: leave.totalDays,
-            },
-          },
-        });
-      }
-
-      return updated;
+    // Create approval record in LeaveApproval chain
+    await prisma.leaveApproval.create({
+      data: {
+        leaveId: id,
+        approverId: currentUser.id,
+        approverRole: currentUser.role as Role,
+        level: 1,
+        status: approved ? 'APPROVED' : 'REJECTED',
+        comment: approved ? approverNote : rejectedReason,
+        actionAt: new Date(),
+      },
     });
+
+    // Update leave status
+    const updatedLeave = await prisma.leave.update({
+      where: { id },
+      data: {
+        status: approved ? 'APPROVED' : 'REJECTED',
+        approvedById: currentUser.id,
+        approvedAt: new Date(),
+        rejectedReason: approved ? null : rejectedReason,
+        approverNote: approverNote || null,
+        currentApproverId: null,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            leaveQuota: true,
+            leaveUsed: true,
+          },
+        },
+        approvedBy: {
+          select: { id: true, name: true },
+        },
+        approvalChain: {
+          include: {
+            approver: {
+              select: { id: true, name: true, role: true },
+            },
+          },
+          orderBy: { level: 'asc' },
+        },
+      },
+    });
+
+    // Update user's leave used if approved
+    if (approved) {
+      await prisma.user.update({
+        where: { id: leave.userId },
+        data: {
+          leaveUsed: {
+            increment: leave.totalDays,
+          },
+        },
+      });
+    }
 
     // Notify user using notification service
     if (approved) {
