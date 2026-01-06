@@ -4,6 +4,7 @@ import { verifyToken, getTokenFromHeader, hasPermission, canApproveLeaveFor } fr
 import { ApiResponse, ApproveLeaveRequest, Leave, Role, LeaveStatus, LEAVE_TYPE_LABELS } from '@/lib/types';
 import { notifyLeaveApproved, notifyLeaveRejected } from '@/lib/notifications';
 import { notifyLeaveApprovalViaWebhook } from '@/lib/webhook';
+import { Prisma } from '@prisma/client';
 
 // Type for leave with included user
 interface LeaveWithUser {
@@ -159,7 +160,7 @@ export async function PATCH(
     }
 
     // Start transaction for approval
-    const updatedLeave = await prisma.$transaction(async (tx) => {
+    const updatedLeave = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // Create approval record in LeaveApproval chain
       await tx.leaveApproval.create({
         data: {
