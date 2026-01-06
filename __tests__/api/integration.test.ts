@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
 
 // Mock Prisma client - with all necessary methods
@@ -267,7 +267,7 @@ describe('API Integration Tests', () => {
         name: 'Test User',
         role: Role.ADMIN,
         departmentId: 'dept-1',
-        subUnitId: null,
+        subUnitId: undefined,
       };
 
       vi.mocked(getTokenFromHeader).mockReturnValue('valid-token');
@@ -324,7 +324,7 @@ describe('API Integration Tests', () => {
 
       const { GET } = await import('@/app/api/notifications/route');
       
-      const req = new NextRequest('http://localhost:3000/api/notifications', {
+      const req = new NextRequest('http://localhost:3000/api/notifications?limit=20&offset=0', {
         headers: new Headers({
           'Authorization': 'Bearer valid-token'
         })

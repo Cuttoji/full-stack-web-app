@@ -17,10 +17,10 @@ export const GET = withAuth(async (request, user) => {
   try {
     const { searchParams } = new URL(request.url);
     const query = getNotificationsQuerySchema.parse({
-      limit: searchParams.get('limit'),
-      offset: searchParams.get('offset'),
-      unreadOnly: searchParams.get('unreadOnly'),
-      type: searchParams.get('type'),
+      limit: searchParams.get('limit') ?? undefined,
+      offset: searchParams.get('offset') ?? undefined,
+      unreadOnly: searchParams.get('unreadOnly') ?? undefined,
+      type: searchParams.get('type') ?? undefined,
     });
 
     const whereClause = {
