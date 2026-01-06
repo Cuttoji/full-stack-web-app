@@ -1,0 +1,7 @@
+# Type check all TypeScript files
+echo "🔍 Running TypeScript check..."
+npx tsc --noEmit
+
+# Run lint-staged for staged files
+echo "✨ Running lint-staged..."
+npx lint-staged
