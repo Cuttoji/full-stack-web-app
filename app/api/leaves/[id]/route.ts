@@ -159,7 +159,7 @@ export async function PATCH(
     }
 
     // Start transaction for approval
-    const updatedLeave = await prisma.$transaction(async (tx: typeof prisma) => {
+    const updatedLeave = await prisma.$transaction(async (tx) => {
       // Create approval record in LeaveApproval chain
       await tx.leaveApproval.create({
         data: {

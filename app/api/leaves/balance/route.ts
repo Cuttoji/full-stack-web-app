@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
 
       // Calculate used and pending
       const { used, pending } = calculateUsedLeave(
-        userLeaves.map(l => ({
+        userLeaves.map((l: typeof userLeaves[number]) => ({
           ...l,
           approvedById: l.approvedById ?? undefined,
           approvedAt: l.approvedAt ?? undefined,

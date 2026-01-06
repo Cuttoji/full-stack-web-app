@@ -267,7 +267,7 @@ describe('API Integration Tests', () => {
         name: 'Test User',
         role: Role.ADMIN,
         departmentId: 'dept-1',
-        subUnitId: null,
+        subUnitId: undefined,
       };
 
       vi.mocked(getTokenFromHeader).mockReturnValue('valid-token');

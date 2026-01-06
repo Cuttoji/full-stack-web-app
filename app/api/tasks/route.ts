@@ -133,7 +133,6 @@ export const POST = withPermission('canCreateTasks', async (request: NextRequest
       startTime,
       endTime,
       subUnitId,
-      priority,
     } = validation.data;
 
     const jobNumber = generateJobNumber();
@@ -151,7 +150,6 @@ export const POST = withPermission('canCreateTasks', async (request: NextRequest
         startTime: startTime || '09:00',
         endTime: endTime || '17:00',
         status: 'WAITING',
-        priority: priority || 1,
         subUnitId: subUnitId || null,
         createdById: currentUser.id,
       },
