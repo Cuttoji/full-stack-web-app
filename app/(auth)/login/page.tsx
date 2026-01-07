@@ -144,26 +144,6 @@ export default function LoginPage() {
         </button>
       </form>
 
-      <div className="mt-8 pt-8 border-t border-gray-200">
-        <div className="flex items-center gap-2 mb-4">
-          <Sparkles className="w-4 h-4 text-amber-500" />
-          <span className="text-sm font-medium text-gray-700">บัญชีทดสอบ</span>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          {demoAccounts.map((account) => (
-            <button
-              key={account.email}
-              type="button"
-              onClick={() => fillDemo(account.email, account.password)}
-              className="p-3 bg-white border border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50/50 transition-all text-left group"
-            >
-              <p className="font-medium text-gray-900 group-hover:text-blue-700 text-sm">{account.role}</p>
-              <p className="text-xs text-gray-500 truncate mt-0.5">{account.email}</p>
-            </button>
-          ))}
-        </div>
-      </div>
-
       {/* Mobile switch */}
       <p className="mt-6 text-center text-sm text-gray-600 lg:hidden">
         ยังไม่มีบัญชี?{' '}

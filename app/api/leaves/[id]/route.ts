@@ -116,6 +116,12 @@ export async function PATCH(
     const body: Omit<ApproveLeaveRequest, 'leaveId'> & { approverNote?: string } = await request.json();
     const { approved, rejectedReason, approverNote } = body;
 
+    // Debug log - ตรวจสอบค่าที่ได้รับ
+    console.log('Leave approval request:', { approved, rejectedReason, approverNote, body });
+
+    // Ensure approved is a boolean (handle both boolean and string)
+    const isApproved = approved === true;
+
     const leave = await prisma.leave.findUnique({
       where: { id },
       include: {
@@ -167,8 +173,8 @@ export async function PATCH(
           approverId: currentUser.id,
           approverRole: currentUser.role as Role,
           level: 1, // TODO: ปรับตาม approval level จริง
-          status: approved ? 'APPROVED' : 'REJECTED',
-          comment: approved ? approverNote : rejectedReason,
+          status: isApproved ? 'APPROVED' : 'REJECTED',
+          comment: isApproved ? approverNote : rejectedReason,
           actionAt: new Date(),
         },
       });
@@ -177,10 +183,10 @@ export async function PATCH(
       const updated = await tx.leave.update({
         where: { id },
         data: {
-          status: approved ? 'APPROVED' : 'REJECTED',
+          status: isApproved ? 'APPROVED' : 'REJECTED',
           approvedById: currentUser.id,
           approvedAt: new Date(),
-          rejectedReason: approved ? null : rejectedReason,
+          rejectedReason: isApproved ? null : rejectedReason,
           approverNote: approverNote || null,
           currentApproverId: null, // Clear current approver
         },
@@ -209,7 +215,7 @@ export async function PATCH(
       });
 
       // Update user's leave used if approved
-      if (approved) {
+      if (isApproved) {
         await tx.user.update({
           where: { id: leave.userId },
           data: {
@@ -224,7 +230,7 @@ export async function PATCH(
     });
 
     // Notify user using notification service
-    if (approved) {
+    if (isApproved) {
       await notifyLeaveApproved(id, leave.userId, currentUser.name || 'ผู้อนุมัติ');
     } else {
       await notifyLeaveRejected(id, leave.userId, currentUser.name || 'ผู้อนุมัติ', rejectedReason);
@@ -242,7 +248,7 @@ export async function PATCH(
         new Date(updatedLeave.startDate),
         new Date(updatedLeave.endDate),
         updatedLeave.totalDays,
-        approved,
+        isApproved,
         rejectedReason
       );
     }
@@ -250,7 +256,7 @@ export async function PATCH(
     return NextResponse.json<ApiResponse<Leave>>({
       success: true,
       data: updatedLeave as unknown as Leave,
-      message: approved ? 'อนุมัติการลาสำเร็จ' : 'ปฏิเสธการลาสำเร็จ',
+      message: isApproved ? 'อนุมัติการลาสำเร็จ' : 'ปฏิเสธการลาสำเร็จ',
     });
   } catch (error) {
     console.error('Update leave error:', error);

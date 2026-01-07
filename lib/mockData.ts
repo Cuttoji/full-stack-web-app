@@ -1,7 +1,7 @@
 // Mock data for development/testing
 // Used by mockDb.ts for in-memory database simulation
 
-import { Role, TaskStatus, LeaveStatus, CarStatus } from './types';
+import { Role } from './types';
 
 // Mock Users
 export const mockUsers = [
@@ -47,91 +47,26 @@ export const mockSubUnits = [
   },
 ];
 
-// Mock Tasks
-export const mockTasks = [
-  {
-    id: 'task-1',
-    jobNumber: 'JOB-001',
-    title: 'งานตัวอย่าง',
-    description: 'รายละเอียดงาน',
-    location: 'กรุงเทพฯ',
-    customerName: 'ลูกค้าตัวอย่าง',
-    customerPhone: '0899999999',
-    scheduledDate: new Date(),
-    startDate: new Date(),
-    endDate: new Date(),
-    startTime: '09:00',
-    endTime: '17:00',
-    status: TaskStatus.WAITING,
-    isLoop: false,
-    loopPattern: null,
-    loopInterval: null,
-    loopEndDate: null,
-    parentTaskId: null,
-    subUnitId: 'subunit-1',
-    carId: null,
-    createdById: 'user-1',
-    notes: null,
-    priority: 1,
-    completedAt: null,
-    deletedAt: null,
-    deletedById: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-];
+// Mock Tasks - Empty for production
+export const mockTasks: Array<Record<string, unknown>> = [];
 
-// Mock Leaves
-export const mockLeaves = [
-  {
-    id: 'leave-1',
-    userId: 'user-1',
-    type: 'PERSONAL',
-    startDate: new Date(),
-    endDate: new Date(),
-    totalDays: 1,
-    reason: 'ธุระส่วนตัว',
-    status: LeaveStatus.PENDING,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-];
+// Mock Leaves - Empty for production
+export const mockLeaves: Array<Record<string, unknown>> = [];
 
-// Mock Cars
-export const mockCars = [
-  {
-    id: 'car-1',
-    licensePlate: 'กข-1234',
-    brand: 'Toyota',
-    model: 'Hilux',
-    color: 'White',
-    status: CarStatus.AVAILABLE,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-];
+// Mock Cars - Empty for production
+export const mockCars: Array<Record<string, unknown>> = [];
 
-// Mock Notifications
-export const mockNotifications = [
-  {
-    id: 'notif-1',
-    userId: 'user-1',
-    title: 'ยินดีต้อนรับ',
-    message: 'ยินดีต้อนรับสู่ระบบ',
-    type: 'INFO',
-    isRead: false,
-    createdAt: new Date(),
-  },
-];
+// Mock Notifications - Empty for production
+export const mockNotifications: Array<Record<string, unknown>> = [];
 
-// Mock Dashboard Stats
+// Mock Dashboard Stats - Reset for production
 export const mockDashboardStats = {
-  totalTasks: 10,
-  waitingTasks: 3,
-  inProgressTasks: 4,
-  completedTasks: 3,
+  totalTasks: 0,
+  waitingTasks: 0,
+  inProgressTasks: 0,
+  completedTasks: 0,
   cancelledTasks: 0,
-  todayTasks: 2,
-  pendingLeaves: 1,
-  availableCars: 5,
+  todayTasks: 0,
+  pendingLeaves: 0,
+  availableCars: 0,
 };

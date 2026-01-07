@@ -1,4 +1,4 @@
-import { PrismaClient, Role, SubUnitType, CarStatus, TaskStatus } from '@prisma/client';
+import { PrismaClient, Role, SubUnitType } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 import bcrypt from 'bcryptjs';
@@ -330,119 +330,8 @@ async function main() {
 
   console.log('✅ Users created (14 users with hierarchical structure)');
 
-  // Create Cars
-  const car1 = await prisma.car.upsert({
-    where: { plateNumber: 'กข-1234' },
-    update: {},
-    create: {
-      plateNumber: 'กข-1234',
-      name: 'รถกระบะ Toyota Hilux',
-      type: 'กระบะ',
-      brand: 'Toyota',
-      model: 'Hilux',
-      year: 2022,
-      status: CarStatus.AVAILABLE,
-    },
-  });
-
-  const car2 = await prisma.car.upsert({
-    where: { plateNumber: 'กค-5678' },
-    update: {},
-    create: {
-      plateNumber: 'กค-5678',
-      name: 'รถตู้ Toyota Commuter',
-      type: 'รถตู้',
-      brand: 'Toyota',
-      model: 'Commuter',
-      year: 2021,
-      status: CarStatus.AVAILABLE,
-    },
-  });
-
-  const car3 = await prisma.car.upsert({
-    where: { plateNumber: 'กง-9012' },
-    update: {},
-    create: {
-      plateNumber: 'กง-9012',
-      name: 'รถเก๋ง Honda City',
-      type: 'เก๋ง',
-      brand: 'Honda',
-      model: 'City',
-      year: 2023,
-      status: CarStatus.AVAILABLE,
-    },
-  });
-
-  console.log('✅ Cars created');
-
-  // Create Sample Tasks
-  const today = new Date();
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-
-  const task1 = await prisma.task.create({
-    data: {
-      jobNumber: `JOB-${Date.now()}-001`,
-      title: 'ติดตั้งเครื่องถ่ายเอกสาร Canon iR-ADV DX C5870i',
-      description: 'ติดตั้งเครื่องถ่ายเอกสารใหม่ที่บริษัท ABC พร้อมตั้งค่า Network',
-      location: 'อาคาร ABC ชั้น 5 ห้อง 501',
-      customerName: 'บริษัท ABC จำกัด',
-      customerPhone: '02-123-4567',
-      startDate: today,
-      endDate: today,
-      startTime: '09:00',
-      endTime: '12:00',
-      status: TaskStatus.WAITING,
-      subUnitId: installUnit.id,
-      createdById: sales.id,
-    },
-  });
-
-  const task2 = await prisma.task.create({
-    data: {
-      jobNumber: `JOB-${Date.now()}-002`,
-      title: 'ซ่อมปริ้นเตอร์ HP LaserJet Pro',
-      description: 'ปริ้นเตอร์ HP ไม่ดึงกระดาษ ตรวจเช็คและซ่อม',
-      location: 'บริษัท XYZ ชั้น 3 ห้องบัญชี',
-      customerName: 'บริษัท XYZ จำกัด',
-      customerPhone: '02-987-6543',
-      startDate: tomorrow,
-      endDate: tomorrow,
-      startTime: '13:00',
-      endTime: '16:00',
-      status: TaskStatus.WAITING,
-      subUnitId: printerUnit.id,
-      createdById: sales.id,
-    },
-  });
-
-  const task3 = await prisma.task.create({
-    data: {
-      jobNumber: `JOB-${Date.now()}-003`,
-      title: 'บำรุงรักษาเครื่องเช่า ประจำเดือน',
-      description: 'ตรวจเช็คและบำรุงรักษาเครื่องถ่ายเอกสารเช่า 5 เครื่อง',
-      location: 'บริษัท DEF จำกัด',
-      customerName: 'บริษัท DEF จำกัด',
-      customerPhone: '02-555-1234',
-      startDate: today,
-      endDate: today,
-      startTime: '08:00',
-      endTime: '17:00',
-      status: TaskStatus.IN_PROGRESS,
-      subUnitId: rentalUnit.id,
-      createdById: salesLeader.id,
-    },
-  });
-
-  // Assign tech1 to task3
-  await prisma.taskAssignment.create({
-    data: {
-      taskId: task3.id,
-      userId: tech1.id,
-    },
-  });
-
-  console.log('✅ Sample tasks created');
+  // Cars - Add real cars from admin panel in production
+  // Tasks - Create tasks through the application in production
 
   console.log('🎉 Seed completed successfully!');
   console.log('\n📝 Test Accounts (all password: password123):');

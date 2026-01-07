@@ -59,9 +59,10 @@ export async function POST(request: NextRequest) {
         password: hashedPassword,
         phone: phone || null,
         role: 'TECH', // Default role - can be changed by admin
-        departmentId: departmentId || null,
+        departmentId: (departmentId && departmentId.trim() !== "") ? departmentId : null,
         employeeId: finalEmployeeId,
         isActive: true,
+        
       },
       select: {
         id: true,

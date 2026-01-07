@@ -349,8 +349,9 @@ export default function LeavesPage() {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          status,
+          approved: status === 'APPROVED',
           approverNote: approvalNote,
+          rejectedReason: status === 'REJECTED' ? approvalNote : undefined,
         }),
       });
 
@@ -506,7 +507,7 @@ export default function LeavesPage() {
                     : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
                 }`}
               >
-                การลาของฉัน
+                ประวัติการลาของฉัน
               </button>
               {canApprove && (
                 <>
@@ -955,7 +956,11 @@ export default function LeavesPage() {
               </div>
             )}
 
-            {selectedLeave.status === LeaveStatus.PENDING && canApprove && (
+            {/* แสดงปุ่มอนุมัติเฉพาะเมื่อ:
+                1. สถานะ PENDING
+                2. ผู้ใช้มีสิทธิ์อนุมัติ (canApprove)
+                3. ไม่ใช่การลาของตัวเอง */}
+            {selectedLeave.status === LeaveStatus.PENDING && canApprove && selectedLeave.userId !== user?.id && (
               <div className="pt-4 border-t border-gray-200 dark:border-gray-700 space-y-4">
                 {/* Warning for conflicting tasks */}
                 {hasTaskConflicts && conflictingTasks.length > 0 && (
