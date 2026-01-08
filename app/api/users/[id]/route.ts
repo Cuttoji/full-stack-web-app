@@ -36,6 +36,7 @@ export async function GET(
         leaveQuota: true,
         leaveUsed: true,
         lunchBreakStart: true,
+        lunchBreakDuration: true,
         isActive: true,
         permissions: true,
         createdAt: true,
@@ -110,6 +111,7 @@ export async function PATCH(
     if (updateData.email !== undefined) data.email = updateData.email;
     if (updateData.phone !== undefined) data.phone = updateData.phone || null;
     if (updateData.lunchBreakStart !== undefined) data.lunchBreakStart = updateData.lunchBreakStart;
+    if (updateData.lunchBreakDuration !== undefined) data.lunchBreakDuration = updateData.lunchBreakDuration;
     if (updateData.role !== undefined) data.role = updateData.role;
     if (updateData.departmentId !== undefined) data.departmentId = updateData.departmentId || null;
     if (updateData.subUnitId !== undefined) data.subUnitId = updateData.subUnitId || null;
@@ -138,6 +140,7 @@ export async function PATCH(
         leaveQuota: true,
         leaveUsed: true,
         lunchBreakStart: true,
+        lunchBreakDuration: true,
         isActive: true,
         permissions: true,
         createdAt: true,

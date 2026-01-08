@@ -221,7 +221,9 @@ export default function LeavesPage() {
       formData.endDate,
       false,
       formData.startTime,
-      formData.endTime
+      formData.endTime,
+      user?.lunchBreakStart,
+      user?.lunchBreakDuration ?? 60
     );
   }, [formData.startDate, formData.endDate, formData.durationType, formData.startTime, formData.endTime]);
 
@@ -237,7 +239,7 @@ export default function LeavesPage() {
     const [startHour, startMinute] = formData.startTime.split(':').map(Number);
     const [endHour, endMinute] = formData.endTime.split(':').map(Number);
     return {
-      lunchOverlapMinutes: calculateLunchOverlap(startHour, startMinute, endHour, endMinute),
+      lunchOverlapMinutes: calculateLunchOverlap(startHour, startMinute, endHour, endMinute, user?.lunchBreakStart, user?.lunchBreakDuration ?? 60),
       rawMinutes: (endHour * 60 + endMinute) - (startHour * 60 + startMinute),
     };
   }, [formData.durationType, formData.startTime, formData.endTime]);
@@ -277,7 +279,7 @@ export default function LeavesPage() {
         return;
       }
       
-      const validation = validateLeaveTime(formData.startTime, formData.endTime);
+      const validation = validateLeaveTime(formData.startTime, formData.endTime, user?.lunchBreakStart, user?.lunchBreakDuration ?? 60);
       if (!validation.valid) {
         setFormError(validation.error || 'เวลาไม่ถูกต้อง');
         return;

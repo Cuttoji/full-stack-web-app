@@ -63,6 +63,7 @@ export const createUserSchema = z.object({
   phone: phoneSchema,
   birthDate: dateSchema.optional(),
   lunchBreakStart: z.enum(['11:30','12:00','12:30']).optional(),
+  lunchBreakDuration: z.number().int().min(0).max(180).optional(),
   role: z.nativeEnum(Role),
   departmentId: z.string().optional(),
   subUnitId: z.string().optional(),

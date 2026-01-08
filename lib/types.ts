@@ -183,6 +183,7 @@ export interface User {
   birthDate?: Date;             // วันเกิด
   employmentStartDate?: Date;   // วันเข้างาน
   lunchBreakStart?: string;     // เวลาพักเที่ยง (11:30, 12:00, 12:30)
+  lunchBreakDuration?: number;  // ระยะเวลาพักเที่ยง (นาที)
   isActive: boolean;
   permissions?: UserPermissions;
   permissionScope?: PermissionScope; // Scope ของสิทธิ์
@@ -752,6 +753,7 @@ export interface CreateUserRequest {
   phone?: string;
   birthDate?: string;
   lunchBreakStart?: string;
+  lunchBreakDuration?: number;
   role: Role;
   departmentId: string;
   subUnitId?: string;
@@ -763,6 +765,7 @@ export interface UpdateUserRequest extends Partial<Omit<CreateUserRequest, 'pass
   isActive?: boolean;
   newPassword?: string;
   lunchBreakStart?: string;
+  lunchBreakDuration?: number;
   permissions?: UserPermissions;
 }
 

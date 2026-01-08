@@ -25,6 +25,7 @@ export default function SettingsPage() {
   const [name, setName] = useState(user?.name || '');
   const [phone, setPhone] = useState(user?.phone || '');
   const [lunchBreakStart, setLunchBreakStart] = useState(user?.lunchBreakStart || '12:00');
+  const [lunchBreakDuration, setLunchBreakDuration] = useState<number>(user?.lunchBreakDuration ?? 60);
   const [isProfileSaving, setIsProfileSaving] = useState(false);
   const [profileMessage, setProfileMessage] = useState('');
   
@@ -48,6 +49,7 @@ export default function SettingsPage() {
       setName(user.name);
       setPhone(user.phone || '');
       setLunchBreakStart(user.lunchBreakStart || '12:00');
+      setLunchBreakDuration(user.lunchBreakDuration ?? 60);
       
       // Fetch leave balance
       const fetchLeaveBalance = async () => {
@@ -89,7 +91,7 @@ export default function SettingsPage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ name, phone, lunchBreakStart }),
+        body: JSON.stringify({ name, phone, lunchBreakStart, lunchBreakDuration }),
       });
 
       const result = await response.json();
@@ -262,6 +264,24 @@ export default function SettingsPage() {
               </select>
               <p className="text-xs text-gray-700 dark:text-gray-400 mt-1">
                 เวลาพักเที่ยงของคุณ (ใช้สำหรับคำนวณเวลาลาอัตโนมัติ)
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                ระยะเวลาพักเที่ยง (นาที)
+              </label>
+              <select
+                value={lunchBreakDuration}
+                onChange={(e) => setLunchBreakDuration(parseInt(e.target.value, 10))}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value={30}>30 นาที</option>
+                <option value={45}>45 นาที</option>
+                <option value={60}>60 นาที</option>
+              </select>
+              <p className="text-xs text-gray-700 dark:text-gray-400 mt-1">
+                ระยะเวลาพักเที่ยงที่ระบบจะนำไปหักออกจากการลาแบบรายชั่วโมง
               </p>
             </div>
 

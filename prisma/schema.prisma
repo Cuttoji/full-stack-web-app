@@ -136,6 +136,7 @@ model User {
   birthDate     DateTime? // วันเกิด
   employmentStartDate DateTime? // วันเข้างาน
   lunchBreakStart String? @default("12:00") // เวลาพักเที่ยง (11:30, 12:00, 12:30)
+  lunchBreakDuration Int? @default(60) // ระยะเวลาพักเที่ยง (นาที)
   isActive      Boolean  @default(true)
   permissions   Json?    // Custom permissions (UserPermissions)
   permissionScope Json?  // Permission scope (PermissionScope)

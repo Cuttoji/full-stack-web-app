@@ -59,6 +59,7 @@ export default function UsersPage() {
     phone: undefined,
     birthDate: undefined,
     lunchBreakStart: '12:00',
+    lunchBreakDuration: 60,
     role: Role.TECH,
     departmentId: '',
   });
@@ -297,6 +298,7 @@ export default function UsersPage() {
       phone: user.phone || undefined,
       birthDate: user.birthDate ? new Date(user.birthDate).toISOString().split('T')[0] : undefined,
       lunchBreakStart: (user as any).lunchBreakStart || '12:00',
+      lunchBreakDuration: (user as any).lunchBreakDuration ?? 60,
       leaveQuota: user.leaveQuota,
       permissions: user.permissions || {},
     });
@@ -904,6 +906,19 @@ export default function UsersPage() {
                 <option value="11:30">11:30 น.</option>
                 <option value="12:00">12:00 น.</option>
                 <option value="12:30">12:30 น.</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ระยะเวลาพักเที่ยง (นาที)</label>
+              <select
+                value={formData.lunchBreakDuration}
+                onChange={(e) => setFormData({ ...formData, lunchBreakDuration: parseInt(e.target.value, 10) })}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+              >
+                <option value={30}>30 นาที</option>
+                <option value={45}>45 นาที</option>
+                <option value={60}>60 นาที</option>
               </select>
             </div>
           </div>

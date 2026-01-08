@@ -44,25 +44,36 @@ export function countWorkDays(startDate: Date, endDate: Date): number {
  * คำนวณนาทีที่ทับซ้อนกับช่วงพักเที่ยง (12:00-13:00)
  */
 export function calculateLunchOverlap(
-  startHour: number, 
-  startMinute: number, 
-  endHour: number, 
-  endMinute: number
+  startHour: number,
+  startMinute: number,
+  endHour: number,
+  endMinute: number,
+  lunchStart?: string,
+  lunchDurationMinutes = 60
 ): number {
   // แปลงเป็นนาทีจาก 00:00
   const startTotalMinutes = startHour * 60 + startMinute;
   const endTotalMinutes = endHour * 60 + endMinute;
-  const lunchStartMinutes = LUNCH_START_HOUR * 60; // 12:00 = 720
-  const lunchEndMinutes = LUNCH_END_HOUR * 60;     // 13:00 = 780
-  
+
+  // Determine lunch start in minutes; allow custom per-user lunchStart (HH:mm)
+  let lunchStartMinutes = LUNCH_START_HOUR * 60; // default 12:00 = 720
+  if (lunchStart) {
+    const parts = lunchStart.split(':').map(Number);
+    if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+      lunchStartMinutes = parts[0] * 60 + parts[1];
+    }
+  }
+
+  const lunchEndMinutes = lunchStartMinutes + lunchDurationMinutes;
+
   // หาช่วงที่ทับซ้อน
   const overlapStart = Math.max(startTotalMinutes, lunchStartMinutes);
   const overlapEnd = Math.min(endTotalMinutes, lunchEndMinutes);
-  
+
   if (overlapStart < overlapEnd) {
     return overlapEnd - overlapStart;
   }
-  
+
   return 0;
 }
 
@@ -81,7 +92,9 @@ export function calculateLeaveMinutes(
   endDate: Date | string,
   isFullDay: boolean,
   startTime?: string,
-  endTime?: string
+  endTime?: string,
+  lunchStart?: string,
+  lunchDurationMinutes = 60
 ): number {
   const start = typeof startDate === 'string' ? new Date(startDate) : startDate;
   const end = typeof endDate === 'string' ? new Date(endDate) : endDate;
@@ -107,8 +120,15 @@ export function calculateLeaveMinutes(
     return 0;
   }
   
-  // หักช่วงพักเที่ยง
-  const lunchOverlap = calculateLunchOverlap(startHour, startMinute, endHour, endMinute);
+  // หักช่วงพักเที่ยง (สามารถส่ง lunchStart ที่ตั้งค่าเฉพาะผู้ใช้เข้ามาได้)
+  const lunchOverlap = calculateLunchOverlap(
+    startHour,
+    startMinute,
+    endHour,
+    endMinute,
+    lunchStart,
+    lunchDurationMinutes
+  );
   const actualMinutes = totalMinutes - lunchOverlap;
   
   return Math.max(actualMinutes, 0);
@@ -216,7 +236,9 @@ export function generateTimeOptions(
  */
 export function validateLeaveTime(
   startTime: string,
-  endTime: string
+  endTime: string,
+  lunchStart?: string,
+  lunchDurationMinutes = 60
 ): { valid: boolean; error?: string } {
   const [startHour, startMinute] = startTime.split(':').map(Number);
   const [endHour, endMinute] = endTime.split(':').map(Number);
@@ -235,7 +257,9 @@ export function validateLeaveTime(
     new Date(),
     false,
     startTime,
-    endTime
+    endTime,
+    lunchStart,
+    lunchDurationMinutes
   );
   
   // ตรวจสอบขั้นต่ำ 30 นาที
