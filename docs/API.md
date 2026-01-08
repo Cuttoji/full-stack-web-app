@@ -68,8 +68,8 @@ Authenticate a user and receive a JWT token.
 **Request Body:**
 ```json
 {
-  "email": "user@example.com",
-  "password": "password123"
+  "email": "your-email@company.com",
+  "password": "your-secure-password"
 }
 ```
 
@@ -82,7 +82,7 @@ Authenticate a user and receive a JWT token.
     "user": {
       "id": "user-id",
       "employeeId": "EMP001",
-      "email": "user@example.com",
+      "email": "your-email@company.com",
       "name": "User Name",
       "role": "TECH",
       "departmentId": "dept-id"
@@ -107,7 +107,7 @@ Get the current authenticated user's information.
   "data": {
     "id": "user-id",
     "employeeId": "EMP001",
-    "email": "user@example.com",
+    "email": "your-email@company.com",
     "name": "User Name",
     "role": "TECH",
     "departmentId": "dept-id",
@@ -186,8 +186,8 @@ Create a new user. Requires `canManageUsers` permission.
 ```json
 {
   "employeeId": "EMP002",
-  "email": "newuser@example.com",
-  "password": "password123",
+  "email": "newuser@company.com",
+  "password": "secure-password",
   "name": "New User",
   "role": "TECH",
   "departmentId": "dept-id"
@@ -201,7 +201,7 @@ Create a new user. Requires `canManageUsers` permission.
   "data": {
     "id": "new-user-id",
     "employeeId": "EMP002",
-    "email": "newuser@example.com",
+    "email": "newuser@company.com",
     "name": "New User",
     "role": "TECH"
   }
@@ -219,7 +219,7 @@ Get a specific user by ID.
   "data": {
     "id": "user-id",
     "employeeId": "EMP001",
-    "email": "user@example.com",
+    "email": "your-email@company.com",
     "name": "User Name",
     "role": "TECH",
     "department": {...},
@@ -261,7 +261,7 @@ Get a list of tasks. Users see tasks based on their role and permissions.
   "data": [
     {
       "id": "task-id",
-      "jobNumber": "JOB-20250104-001",
+      "jobNumber": "JOB-YYYYMMDD-XXX",
       "title": "Task Title",
       "description": "Task description",
       "status": "PENDING",
@@ -306,7 +306,7 @@ Create a new task. Requires `canCreateTasks` permission.
   "success": true,
   "data": {
     "id": "new-task-id",
-    "jobNumber": "JOB-20250104-002",
+    "jobNumber": "JOB-YYYYMMDD-XXX",
     "title": "New Task",
     "status": "PENDING"
   }

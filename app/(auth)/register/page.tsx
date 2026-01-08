@@ -22,6 +22,8 @@ export default function RegisterPage() {
     password: '',
     confirmPassword: '',
     department: '',
+    phone: '',
+    birthDate: '',
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -73,7 +75,9 @@ export default function RegisterPage() {
           name: formData.name,
           email: formData.email,
           password: formData.password,
-          departmentId: formData.department || undefined,
+            phone: formData.phone || undefined,
+            birthDate: formData.birthDate || undefined,
+            departmentId: formData.department || undefined,
         }),
       });
       
@@ -206,6 +210,33 @@ export default function RegisterPage() {
           </div>
         </div>
 
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">เบอร์โทร</label>
+            <div className="relative">
+              <input
+                type="tel"
+                name="phone"
+                value={formData.phone}
+                onChange={handleChange}
+                placeholder="0812345678"
+                className="w-full pl-4 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">วันเกิด</label>
+            <div className="relative">
+              <input
+                type="date"
+                name="birthDate"
+                value={formData.birthDate}
+                onChange={handleChange}
+                className="w-full pl-4 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+              />
+            </div>
+          </div>
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             รหัสผ่าน <span className="text-red-500">*</span>
@@ -280,21 +311,6 @@ export default function RegisterPage() {
           )}
         </div>
 
-        <div className="flex items-start gap-3">
-          <input
-            type="checkbox"
-            id="terms"
-            required
-            className="w-4 h-4 mt-1 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
-          />
-          <label htmlFor="terms" className="text-sm text-gray-600">
-            ฉันยอมรับ{' '}
-            <a href="#" className="text-emerald-600 hover:text-emerald-700 font-medium">ข้อกำหนดการใช้งาน</a>
-            {' '}และ{' '}
-            <a href="#" className="text-emerald-600 hover:text-emerald-700 font-medium">นโยบายความเป็นส่วนตัว</a>
-          </label>
-        </div>
-
         <button
           type="submit"
           disabled={isLoading}
@@ -321,8 +337,6 @@ export default function RegisterPage() {
           เข้าสู่ระบบ
         </Link>
       </p>
-
-      <p className="mt-8 text-center text-sm text-gray-500">© 2026 TaskFlow. All rights reserved.</p>
     </div>
   );
 }

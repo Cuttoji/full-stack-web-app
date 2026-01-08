@@ -5,12 +5,58 @@
 
 // Webhook URLs from environment
 const WEBHOOK_LEAVE_URL = process.env.WEBHOOK_LEAVE_URL || process.env.POWER_AUTOMATE_LEAVE_URL;
+const POWER_AUTOMATE_URL = process.env.POWER_AUTOMATE_URL || process.env.WEBHOOK_LEAVE_URL || '';
 const LINE_NOTIFY_TOKEN = process.env.LINE_NOTIFY_TOKEN;
 const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN;
 
 interface WebhookResult {
   success: boolean;
   error?: string;
+}
+
+// Azure AD token cache for client-credentials flow
+let _azureToken: { accessToken: string; expiresAt: number } | null = null;
+
+async function getAzureAccessToken(): Promise<string> {
+  if (_azureToken && Date.now() < _azureToken.expiresAt - 5000) {
+    return _azureToken.accessToken;
+  }
+
+  const tenant = process.env.AZURE_TENANT_ID;
+  const clientId = process.env.AZURE_CLIENT_ID;
+  const clientSecret = process.env.AZURE_CLIENT_SECRET;
+  const scope = process.env.POWER_AUTOMATE_SCOPE || process.env.AZURE_SCOPE || 'https://management.azure.com/.default';
+
+  if (!tenant || !clientId || !clientSecret) {
+    throw new Error('Azure AD credentials not configured (AZURE_TENANT_ID/AZURE_CLIENT_ID/AZURE_CLIENT_SECRET)');
+  }
+
+  const tokenUrl = `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/token`;
+  const body = new URLSearchParams();
+  body.set('grant_type', 'client_credentials');
+  body.set('client_id', clientId);
+  body.set('client_secret', clientSecret);
+  body.set('scope', scope);
+
+  const res = await fetch(tokenUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString(),
+  });
+
+  if (!res.ok) {
+    const txt = await res.text().catch(() => '');
+    throw new Error(`Failed to get Azure access token: ${res.status} ${res.statusText} ${txt}`);
+  }
+
+  const data = await res.json();
+  if (!data.access_token) {
+    throw new Error('Azure token response missing access_token');
+  }
+
+  const expiresIn = parseInt(data.expires_in || '3600', 10);
+  _azureToken = { accessToken: data.access_token, expiresAt: Date.now() + expiresIn * 1000 };
+  return _azureToken.accessToken;
 }
 
 // ประเภทข้อมูลที่ส่งไป webhook
@@ -60,11 +106,47 @@ type WebhookPayload = LeaveWebhookPayload | TaskWebhookPayload | GeneralWebhookP
  */
 async function sendToWebhook(url: string, payload: WebhookPayload): Promise<WebhookResult> {
   try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    // Optional auth headers for Power Automate / APIM / Shared Access
+    if (process.env.WEBHOOK_APIM_SUBSCRIPTION_KEY) {
+      headers['Ocp-Apim-Subscription-Key'] = process.env.WEBHOOK_APIM_SUBSCRIPTION_KEY;
+    }
+
+    if (process.env.WEBHOOK_AUTH_HEADER_NAME && process.env.WEBHOOK_AUTH_HEADER_VALUE) {
+      headers[process.env.WEBHOOK_AUTH_HEADER_NAME] = process.env.WEBHOOK_AUTH_HEADER_VALUE;
+    }
+
+    if (process.env.WEBHOOK_SHARED_ACCESS) {
+      // Some Power Platform flows expect a Shared Access signature in Authorization header
+      headers['Authorization'] = `SharedAccessSignature ${process.env.WEBHOOK_SHARED_ACCESS}`;
+    }
+
+    // If Azure AD creds configured, get token and set Authorization —
+    // but skip if the URL already contains a `sig=` (SAS) or explicit webhook auth is configured.
+    const hasSigInUrl = url.includes('sig=');
+    const hasExplicitAuthEnv = Boolean(
+      process.env.WEBHOOK_SHARED_ACCESS || process.env.WEBHOOK_APIM_SUBSCRIPTION_KEY ||
+      (process.env.WEBHOOK_AUTH_HEADER_NAME && process.env.WEBHOOK_AUTH_HEADER_VALUE)
+    );
+
+    if (process.env.AZURE_TENANT_ID && process.env.AZURE_CLIENT_ID && process.env.AZURE_CLIENT_SECRET && !hasSigInUrl && !hasExplicitAuthEnv) {
+      try {
+        const token = await getAzureAccessToken();
+        headers['Authorization'] = `Bearer ${token}`;
+      } catch (err) {
+        console.error('Failed to obtain Azure AD token for webhook:', err);
+      }
+    } else if (hasSigInUrl) {
+      // If sig present in URL, Power Automate expects that and no Authorization header is needed.
+      console.log('Webhook URL contains sig=, skipping Azure AD token authentication.');
+    }
+
     const response = await fetch(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify(payload),
     });
 
@@ -304,9 +386,42 @@ export async function notifyLeaveViaWebhook(payload: LeaveWebhookPayload): Promi
   payload.appUrl = appUrl;
 
   // 1. ส่งไป Webhook URL (Power Automate, Make, Zapier, etc.)
-  if (WEBHOOK_LEAVE_URL) {
-    const result = await sendToWebhook(WEBHOOK_LEAVE_URL, payload);
-    results.push(result);
+  const targetWebhookUrl = POWER_AUTOMATE_URL || WEBHOOK_LEAVE_URL || process.env.WEBHOOK_LEAVE_URL || process.env.POWER_AUTOMATE_URL || '';
+  if (targetWebhookUrl) {
+    // Map to Power Automate expected schema
+    const paTitle = payload.type === 'LEAVE_REQUEST' ? 'คำขอลาใหม่' : payload.type === 'LEAVE_APPROVED' ? 'การลาถูกอนุมัติ' : 'การลาถูกปฏิเสธ';
+    const paMessage = `${payload.requesterName} - ${payload.leaveType} (${payload.startDate} – ${payload.endDate})${payload.reason ? `: ${payload.reason}` : ''}`;
+
+    const fallbackEmail = process.env.WEBHOOK_FALLBACK_EMAIL || null;
+    const fallbackName = process.env.WEBHOOK_FALLBACK_NAME || null;
+
+    const recipientEmail = payload.approverEmail || payload.requesterEmail || fallbackEmail;
+    const recipientName = payload.approverName || payload.requesterName || fallbackName;
+
+    if (!recipientEmail) {
+      console.warn('No recipient email found for leave webhook; skipping POST to Power Automate');
+      results.push({ success: false, error: 'no_recipient_email' });
+    } else {
+      // ปรับในส่วน notifyLeaveViaWebhook
+    const paBody = {
+      type: payload.type,
+      requesterName: payload.requesterName,
+      requesterEmail: payload.requesterEmail,
+      approverName: payload.approverName,
+      approverEmail: payload.approverEmail,
+      leaveType: payload.leaveType,
+      startDate: payload.startDate,
+      endDate: payload.endDate,
+      totalDays: payload.totalDays,
+      reason: payload.reason || '',
+      rejectedReason: payload.rejectedReason || '',
+      appUrl: payload.appUrl,
+      recipientEmail: recipientEmail,
+    };
+
+      const result = await sendToWebhook(targetWebhookUrl, paBody as any);
+      results.push(result);
+    }
   }
 
   // 2. ส่งผ่าน LINE Notify (Group notification)

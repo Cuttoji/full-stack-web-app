@@ -125,7 +125,7 @@ export const POST = withAuth(async (request, currentUser) => {
       );
     }
     
-    const { employeeId, email, password, name, phone, role, departmentId, subUnitId, leaveQuota, supervisorId, permissionScope } = validation.data;
+    const { employeeId, email, password, name, phone, birthDate, lunchBreakStart, role, departmentId, subUnitId, leaveQuota, supervisorId, permissionScope } = validation.data;
 
     // Validate hierarchy - ผู้สร้างต้องมีลำดับชั้นสูงกว่าผู้ใช้ที่สร้าง
     if (RoleHierarchy[currentUser.role as Role] <= RoleHierarchy[role]) {
@@ -169,6 +169,8 @@ export const POST = withAuth(async (request, currentUser) => {
         password: hashedPassword,
         name,
         phone: phone || null,
+        birthDate: birthDate ? new Date(birthDate) : null,
+        lunchBreakStart: lunchBreakStart || null,
         role: role as Role,
         departmentId: departmentId || null,
         subUnitId: subUnitId || null,

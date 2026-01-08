@@ -85,11 +85,35 @@ async function main() {
 
   console.log('✅ Sub-units created');
 
-  // Hash password
-  const hashedPassword = await bcrypt.hash('password123', 10);
+  // Ensure production admin account exists (created in all environments)
+  const hashedAdminPassword = await bcrypt.hash('adminROA', 10);
+  const prodAdmin = await prisma.user.upsert({
+    where: { email: 'admin@rayong-oa.com' },
+    update: {},
+    create: {
+      employeeId: 'ADMIN001',
+      email: 'admin@rayong-oa.com',
+      password: hashedAdminPassword,
+      name: 'ผู้ดูแลระบบ',
+      phone: null,
+      role: Role.ADMIN,
+    },
+  });
 
-  // 1. Create Admin User (Top Level)
-  const admin = await prisma.user.upsert({
+  console.log('✅ Admin ensured:', prodAdmin.email);
+
+  // ============================================
+  // DEV ONLY: Create test users with sample data
+  // Skip in production - create users via admin panel
+  // ============================================
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('🔧 Development mode: Creating test users...');
+    
+    // Hash password
+    const hashedPassword = await bcrypt.hash('password123', 10);
+
+    // 1. Create Admin User (Top Level)
+    const admin = await prisma.user.upsert({
     where: { email: 'admin@example.com' },
     update: {},
     create: {
@@ -328,28 +352,33 @@ async function main() {
     },
   });
 
-  console.log('✅ Users created (14 users with hierarchical structure)');
+    console.log('✅ Test users created (14 users with hierarchical structure)');
+    
+    console.log('\n📝 Test Accounts (all password: password123):');
+    console.log('  👑 ADMIN: admin@example.com');
+    console.log('  📞 Customer Service: cs@example.com');
+    console.log('  💰 Finance Leader: finance-leader@example.com');
+    console.log('  💵 Finance: finance@example.com');
+    console.log('  📊 Sales Leader: sales-leader@example.com');
+    console.log('  💼 Sales: sales@example.com');
+    console.log('  🔧 Head Tech: headtech@example.com');
+    console.log('  👔 Leader (Rental): leader-rental@example.com');
+    console.log('  👔 Leader (Install): leader-install@example.com');
+    console.log('  👔 Leader (Printer): leader-printer@example.com');
+    console.log('  👔 Leader (IT): leader-it@example.com');
+    console.log('  🔨 Tech (Rental): tech1@example.com');
+    console.log('  🔨 Tech (Install): tech2@example.com');
+    console.log('  🔨 Tech (Printer): tech3@example.com');
+    console.log('  🔨 Tech (IT): tech4@example.com');
+  } else {
+    console.log('⚠️  Production mode: Skipping test user creation');
+    console.log('   Create users via admin panel after deployment');
+  }
 
-  // Cars - Add real cars from admin panel in production
-  // Tasks - Create tasks through the application in production
+  // Cars - Add real cars from admin panel
+  // Tasks - Create tasks through the application
 
   console.log('🎉 Seed completed successfully!');
-  console.log('\n📝 Test Accounts (all password: password123):');
-  console.log('  👑 ADMIN: admin@example.com');
-  console.log('  📞 Customer Service: cs@example.com');
-  console.log('  💰 Finance Leader: finance-leader@example.com');
-  console.log('  💵 Finance: finance@example.com');
-  console.log('  📊 Sales Leader: sales-leader@example.com');
-  console.log('  💼 Sales: sales@example.com');
-  console.log('  🔧 Head Tech: headtech@example.com');
-  console.log('  👔 Leader (Rental): leader-rental@example.com');
-  console.log('  👔 Leader (Install): leader-install@example.com');
-  console.log('  👔 Leader (Printer): leader-printer@example.com');
-  console.log('  👔 Leader (IT): leader-it@example.com');
-  console.log('  🔨 Tech (Rental): tech1@example.com');
-  console.log('  🔨 Tech (Install): tech2@example.com');
-  console.log('  🔨 Tech (Printer): tech3@example.com');
-  console.log('  🔨 Tech (IT): tech4@example.com');
 }
 
 main()

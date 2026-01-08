@@ -22,6 +22,7 @@ import {
   validateLeaveTime,
   MIN_LEAVE_MINUTES,
 } from '@/lib/leaveCalculation';
+import { countWorkDays, WORK_MINUTES_PER_DAY } from '@/lib/leaveCalculation';
 import {
   Plus,
   Calendar,
@@ -201,11 +202,24 @@ export default function LeavesPage() {
   // Memoized calculations
   const calculatedMinutes = useMemo(() => {
     if (!formData.startDate || !formData.endDate) return 0;
-    const isFullDay = formData.durationType === LeaveDurationType.FULL_DAY;
+    // Handle FULL_DAY, HALF_DAY, and TIME_BASED separately
+    if (formData.durationType === LeaveDurationType.FULL_DAY) {
+      return calculateLeaveMinutes(formData.startDate, formData.endDate, true);
+    }
+
+    if (formData.durationType === LeaveDurationType.HALF_DAY) {
+      // Count working days between dates and multiply by half-day minutes
+      const start = typeof formData.startDate === 'string' ? new Date(formData.startDate) : formData.startDate;
+      const end = typeof formData.endDate === 'string' ? new Date(formData.endDate) : formData.endDate;
+      const workDays = countWorkDays(start, end);
+      return workDays * (WORK_MINUTES_PER_DAY / 2);
+    }
+
+    // TIME_BASED
     return calculateLeaveMinutes(
       formData.startDate,
       formData.endDate,
-      isFullDay,
+      false,
       formData.startTime,
       formData.endTime
     );
@@ -931,24 +945,10 @@ export default function LeavesPage() {
               <p className="font-medium text-gray-900 dark:text-white">{selectedLeave.reason}</p>
             </div>
 
-            {/* แสดงโควตาคงเหลือ */}
-            <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-              <p className="text-sm font-semibold text-gray-900 dark:text-white mb-3">โควตาการลาคงเหลือ</p>
-              <div className="grid grid-cols-2 gap-3">
-                {quotaSummary.filter(q => q.type !== LeaveType.OTHER).map((quota) => (
-                  <div key={quota.type} className="flex justify-between items-center text-sm">
-                    <span className="text-gray-600 dark:text-gray-400">{quota.label}</span>
-                    <span className={`font-medium ${quota.remaining === 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
-                      {quota.remaining}/{quota.quota} วัน
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
+            {/* แสดงผู้อนุมัติ */}
             {selectedLeave.approver && (
-              <div>
-                <p className="text-sm text-gray-900 dark:text-white font-semibold">อนุมัติโดย</p>
+              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <p className="text-sm font-semibold text-gray-900 dark:text-white mb-2">อนุมัติโดย</p>
                 <p className="font-medium text-gray-900 dark:text-gray-200">{selectedLeave.approver.name}</p>
                 {selectedLeave.approverNote && (
                   <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{selectedLeave.approverNote}</p>

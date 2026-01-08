@@ -56,11 +56,15 @@ export default function UsersPage() {
     email: '',
     password: '',
     name: '',
+    phone: undefined,
+    birthDate: undefined,
+    lunchBreakStart: '12:00',
     role: Role.TECH,
     departmentId: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
+  const [userRemaining, setUserRemaining] = useState<Record<string, number>>({});
 
   // Pagination
   const [page, setPage] = useState(1);
@@ -89,6 +93,8 @@ export default function UsersPage() {
       if (data.success) {
         setUsers(data.data.data);
         setTotalPages(data.data.totalPages);
+        // Fetch leave balances for loaded users
+        fetchUserBalances(data.data.data);
       }
     } catch (error) {
       console.error('Failed to fetch users:', error);
@@ -96,6 +102,37 @@ export default function UsersPage() {
       setIsLoading(false);
     }
   }, [search, roleFilter, departmentFilter, page]);
+
+  // Fetch leave balance summary for a list of users and set per-user remaining totals
+  const fetchUserBalances = async (usersList: User[]) => {
+    const token = localStorage.getItem('token');
+    if (!token || !usersList || usersList.length === 0) return;
+
+    try {
+      const promises = usersList.map(async (u) => {
+        try {
+          const res = await fetch(`/api/leaves/balance?userId=${u.id}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          const json = await res.json();
+          if (json.success && json.data?.balance) {
+            const total = json.data.balance.quotas.reduce((sum: number, q: any) => sum + (q.remaining || 0), 0);
+            return { id: u.id, total };
+          }
+        } catch (err) {
+          console.error('Failed to fetch balance for user', u.id, err);
+        }
+        return { id: u.id, total: u.leaveQuota };
+      });
+
+      const results = await Promise.all(promises);
+      const map: Record<string, number> = {};
+      results.forEach((r) => { map[r.id] = r.total; });
+      setUserRemaining(map);
+    } catch (err) {
+      console.error('Error fetching user balances', err);
+    }
+  };
 
   const fetchDepartments = async () => {
     const token = localStorage.getItem('token');
@@ -258,6 +295,8 @@ export default function UsersPage() {
       departmentId: user.departmentId || '',
       subUnitId: user.subUnitId || undefined,
       phone: user.phone || undefined,
+      birthDate: user.birthDate ? new Date(user.birthDate).toISOString().split('T')[0] : undefined,
+      lunchBreakStart: (user as any).lunchBreakStart || '12:00',
       leaveQuota: user.leaveQuota,
       permissions: user.permissions || {},
     });
@@ -275,6 +314,9 @@ export default function UsersPage() {
       email: '',
       password: '',
       name: '',
+      phone: undefined,
+      birthDate: undefined,
+      lunchBreakStart: '12:00',
       role: Role.TECH,
       departmentId: '',
     });
@@ -434,7 +476,7 @@ export default function UsersPage() {
                       แผนก
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                      วันลา
+                      วันลาคงเหลือทั้งหมด
                     </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                       จัดการ
@@ -482,7 +524,7 @@ export default function UsersPage() {
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
-                        {u.leaveQuota} วัน
+                        {userRemaining[u.id] ?? u.leaveQuota} วัน
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex justify-end gap-2">
@@ -760,7 +802,7 @@ export default function UsersPage() {
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                    placeholder="email@example.com"
+                    placeholder="อีเมลพนักงาน"
                   />
                 </div>
 
@@ -828,6 +870,40 @@ export default function UsersPage() {
                     {su.name}
                   </option>
                 ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">เบอร์โทร</label>
+              <input
+                type="tel"
+                value={formData.phone || ''}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                placeholder="0812345678"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">วันเกิด</label>
+              <input
+                type="date"
+                value={formData.birthDate || ''}
+                onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">เวลาพักเที่ยง</label>
+              <select
+                value={formData.lunchBreakStart}
+                onChange={(e) => setFormData({ ...formData, lunchBreakStart: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+              >
+                <option value="11:30">11:30 น.</option>
+                <option value="12:00">12:00 น.</option>
+                <option value="12:30">12:30 น.</option>
               </select>
             </div>
           </div>

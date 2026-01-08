@@ -24,6 +24,7 @@ export default function SettingsPage() {
   // Profile states
   const [name, setName] = useState(user?.name || '');
   const [phone, setPhone] = useState(user?.phone || '');
+  const [lunchBreakStart, setLunchBreakStart] = useState(user?.lunchBreakStart || '12:00');
   const [isProfileSaving, setIsProfileSaving] = useState(false);
   const [profileMessage, setProfileMessage] = useState('');
   
@@ -35,6 +36,9 @@ export default function SettingsPage() {
   const [isPasswordSaving, setIsPasswordSaving] = useState(false);
   const [passwordError, setPasswordError] = useState('');
   
+  // Leave balance
+  const [totalRemainingLeave, setTotalRemainingLeave] = useState<number>(0);
+  
   // Preferences
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [pushNotifications, setPushNotifications] = useState(true);
@@ -43,6 +47,31 @@ export default function SettingsPage() {
     if (user) {
       setName(user.name);
       setPhone(user.phone || '');
+      setLunchBreakStart(user.lunchBreakStart || '12:00');
+      
+      // Fetch leave balance
+      const fetchLeaveBalance = async () => {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+        
+        try {
+          const response = await fetch('/api/leaves/balance', {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          const result = await response.json();
+          if (result.success && result.data?.balance) {
+            const total = result.data.balance.quotas.reduce(
+              (sum: number, q: any) => sum + q.remaining,
+              0
+            );
+            setTotalRemainingLeave(total);
+          }
+        } catch (error) {
+          console.error('Failed to fetch leave balance:', error);
+        }
+      };
+      
+      fetchLeaveBalance();
     }
   }, [user]);
 
@@ -60,7 +89,7 @@ export default function SettingsPage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ name, phone }),
+        body: JSON.stringify({ name, phone, lunchBreakStart }),
       });
 
       const result = await response.json();
@@ -218,6 +247,24 @@ export default function SettingsPage() {
               />
             </div>
 
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                เวลาพักเที่ยง
+              </label>
+              <select
+                value={lunchBreakStart}
+                onChange={(e) => setLunchBreakStart(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="11:30">11:30 น.</option>
+                <option value="12:00">12:00 น.</option>
+                <option value="12:30">12:30 น.</option>
+              </select>
+              <p className="text-xs text-gray-700 dark:text-gray-400 mt-1">
+                เวลาพักเที่ยงของคุณ (ใช้สำหรับคำนวณเวลาลาอัตโนมัติ)
+              </p>
+            </div>
+
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
                 <Building className="w-4 h-4" />
@@ -350,56 +397,14 @@ export default function SettingsPage() {
           </div>
         </Card>
 
-        {/* Notifications Section */}
-        <Card>
-          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-900 dark:text-white">
-            <Bell className="w-5 h-5" />
-            การแจ้งเตือน
-          </h2>
-          
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
-              <div>
-                <p className="font-medium text-gray-900 dark:text-white">แจ้งเตือนอีเมล</p>
-                <p className="text-sm text-gray-700 dark:text-gray-300">รับการแจ้งเตือนผ่านอีเมล</p>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={emailNotifications}
-                  onChange={(e) => setEmailNotifications(e.target.checked)}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-              </label>
-            </div>
-
-            <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
-              <div>
-                <p className="font-medium text-gray-900 dark:text-white">Push Notification</p>
-                <p className="text-sm text-gray-700 dark:text-gray-300">รับการแจ้งเตือนบนเบราว์เซอร์</p>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={pushNotifications}
-                  onChange={(e) => setPushNotifications(e.target.checked)}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-              </label>
-            </div>
-          </div>
-        </Card>
-
         {/* Account Info */}
         <Card>
           <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">ข้อมูลบัญชี</h2>
           
           <div className="space-y-2 text-sm">
             <div className="flex justify-between py-2 border-b border-gray-200 dark:border-slate-600">
-              <span className="text-gray-700 dark:text-gray-300">วันลาคงเหลือ</span>
-              <span className="font-medium text-gray-900 dark:text-white">{user.leaveQuota} วัน</span>
+              <span className="text-gray-700 dark:text-gray-300">วันลาคงเหลือทั้งหมด</span>
+              <span className="font-medium text-gray-900 dark:text-white">{totalRemainingLeave} วัน</span>
             </div>
             <div className="flex justify-between py-2 border-b border-gray-200 dark:border-slate-600">
               <span className="text-gray-700 dark:text-gray-300">ตำแหน่ง</span>

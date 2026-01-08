@@ -1,5 +1,7 @@
 // TypeScript Types & Interfaces for Task & Resource Management System
 
+import { leaveDurationTypeSchema } from "./validations";
+
 // ==================== ENUMS ====================
 
 export enum Role {
@@ -180,6 +182,7 @@ export interface User {
   birthMonth?: number;          // เดือนเกิด (1-12)
   birthDate?: Date;             // วันเกิด
   employmentStartDate?: Date;   // วันเข้างาน
+  lunchBreakStart?: string;     // เวลาพักเที่ยง (11:30, 12:00, 12:30)
   isActive: boolean;
   permissions?: UserPermissions;
   permissionScope?: PermissionScope; // Scope ของสิทธิ์
@@ -637,6 +640,7 @@ export interface AuthUser {
   departmentId?: string;
   subUnitId?: string;
   avatar?: string;
+  lunchBreakStart?: string;
   leaveQuota?: number;
   phone?: string;
   permissions?: UserPermissions;
@@ -746,6 +750,8 @@ export interface CreateUserRequest {
   password: string;
   name: string;
   phone?: string;
+  birthDate?: string;
+  lunchBreakStart?: string;
   role: Role;
   departmentId: string;
   subUnitId?: string;
@@ -756,6 +762,7 @@ export interface CreateUserRequest {
 export interface UpdateUserRequest extends Partial<Omit<CreateUserRequest, 'password'>> {
   isActive?: boolean;
   newPassword?: string;
+  lunchBreakStart?: string;
   permissions?: UserPermissions;
 }
 

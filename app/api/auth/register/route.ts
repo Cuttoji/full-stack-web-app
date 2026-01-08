@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import { ApiResponse } from '@/lib/types';
 import prisma from '@/lib/prisma';
 import { authLogger } from '@/lib/logger';
+import { Role } from '@prisma/client';
 
 // Registration request schema
 const registerSchema = z.object({
@@ -51,6 +52,47 @@ export async function POST(request: NextRequest) {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 12);
 
+    // Resolve departmentId: accept either a real id or a department name (fallback)
+    let departmentIdToUse: string | null = null;
+    if (departmentId && departmentId.trim() !== '') {
+      // Try find by id first
+      const deptById = await prisma.department.findUnique({ where: { id: departmentId } });
+      if (deptById) {
+        departmentIdToUse = deptById.id;
+      } else {
+        // If not found by id, try matching by name (case-insensitive)
+        let deptByName = await prisma.department.findFirst({ where: { name: { equals: departmentId, mode: 'insensitive' } } });
+        if (!deptByName) {
+          // Support common English slugs mapping to Thai department names
+          const slugMap: Record<string, string> = {
+            tech: 'แผนกช่าง',
+            sales: 'ฝ่ายขาย',
+            finance: 'ฝ่ายการเงิน',
+            cs: 'ฝ่ายบริการลูกค้า',
+            customer_service: 'ฝ่ายบริการลูกค้า',
+          };
+          const mappedName = slugMap[departmentId.toLowerCase()];
+          if (mappedName) {
+            deptByName = await prisma.department.findFirst({ where: { name: { equals: mappedName, mode: 'insensitive' } } });
+            if (deptByName) {
+              authLogger.info('Mapped department slug to Thai name during registration', { data: { provided: departmentId, mappedName } });
+            }
+          }
+        }
+
+        if (deptByName) {
+          departmentIdToUse = deptByName.id;
+          authLogger.info('Mapped department name to id during registration', { data: { provided: departmentId, mapped: departmentIdToUse } });
+        } else {
+          authLogger.warn('Registration failed: invalid departmentId', { data: { departmentId } });
+          return NextResponse.json<ApiResponse>(
+            { success: false, error: 'แผนกไม่ถูกต้อง' },
+            { status: 400 }
+          );
+        }
+      }
+    }
+
     // Create user with default TECH role (lowest privilege)
     const newUser = await prisma.user.create({
       data: {
@@ -58,11 +100,10 @@ export async function POST(request: NextRequest) {
         email: email.toLowerCase(),
         password: hashedPassword,
         phone: phone || null,
-        role: 'TECH', // Default role - can be changed by admin
-        departmentId: (departmentId && departmentId.trim() !== "") ? departmentId : null,
+        role: Role.TECH, // Default role - can be changed by admin
+        departmentId: departmentIdToUse,
         employeeId: finalEmployeeId,
         isActive: true,
-        
       },
       select: {
         id: true,

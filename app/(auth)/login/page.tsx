@@ -36,11 +36,6 @@ export default function LoginPage() {
     }
   };
 
-  const demoAccounts = [
-    { role: 'Admin', email: 'admin@example.com', password: 'password123' },
-    { role: 'Head Tech', email: 'headtech@example.com', password: 'password123' },
-  ];
-
   const fillDemo = (demoEmail: string, pass: string) => {
     setEmail(demoEmail);
     setPassword(pass);
@@ -151,8 +146,6 @@ export default function LoginPage() {
           สมัครสมาชิก
         </Link>
       </p>
-
-      <p className="mt-8 text-center text-sm text-gray-500">© 2026 TaskFlow. All rights reserved.</p>
     </div>
   );
 }
