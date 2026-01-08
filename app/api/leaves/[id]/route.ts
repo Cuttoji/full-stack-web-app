@@ -11,6 +11,8 @@ interface LeaveWithUser {
   userId: string;
   status: LeaveStatus | string;
   totalDays: number;
+  startDate: Date;
+  endDate: Date;
   user: {
     id: string;
     role: string;
@@ -224,8 +226,79 @@ export async function PATCH(
             },
           },
         });
-      }
 
+        // Find task assignments for this user that overlap the leave period
+        const overlappingAssignments = await tx.taskAssignment.findMany({
+          where: {
+            userId: leave.userId,
+            task: {
+              is: {
+                startDate: { lte: leave.endDate },
+                endDate: { gte: leave.startDate },
+              },
+            },
+          },
+          include: {
+            task: {
+              select: { id: true, title: true, createdById: true },
+            },
+          },
+        });
+
+        if (overlappingAssignments.length > 0) {
+          // Remove the user's assignments for those tasks
+          for (const a of overlappingAssignments) {
+            await tx.taskAssignment.delete({ where: { id: a.id } });
+          }
+
+          // Notify task creators that the assignee was removed and needs reassignment
+          const creatorIds = Array.from(new Set(overlappingAssignments.map(a => a.task.createdById)));
+          if (creatorIds.length > 0) {
+            await tx.notification.createMany({
+              data: creatorIds.map((creatorId) => ({
+                userId: creatorId,
+                type: 'TASK',
+                title: 'ช่างถูกนำออกจากงาน (เนื่องจากการลา)',
+                message: `ผู้ใช้ ${leave.userId} ถูกนำออกจากงานที่ตรงกับช่วงเวลาการลา กรุณาตรวจสอบและจัดช่างใหม่`,
+                link: `/tasks`,
+                data: { removedUserId: leave.userId },
+              })),
+            });
+          }
+
+          // Notify users who can manage daily technician (HEAD_TECH or permission flag)
+          const managers = await tx.user.findMany({
+            where: {
+              OR: [
+                { role: 'HEAD_TECH' },
+                { permissions: { path: ['canManageDailyTechnician'], equals: true } },
+              ],
+            },
+            select: { id: true },
+          });
+
+          if (managers.length > 0) {
+            const managerIds = managers.map(m => m.id);
+            // Create notification entries for each affected task so managers can reassign
+            const notificationsData: any[] = [];
+            for (const a of overlappingAssignments) {
+              notificationsData.push(...managerIds.map((mid) => ({
+                userId: mid,
+                type: 'TASK',
+                title: 'งานต้องการการมอบหมายใหม่',
+                message: `งาน "${a.task.title}" (ID: ${a.task.id}) ต้องการการมอบหมายใหม่ เนื่องจากผู้รับผิดชอบอยู่ในช่วงลา`,
+                link: `/tasks/${a.task.id}`,
+                data: { taskId: a.task.id, removedUserId: leave.userId },
+              })));
+            }
+
+            if (notificationsData.length > 0) {
+              await tx.notification.createMany({ data: notificationsData });
+            }
+          }
+        }
+
+      }
       return updated;
     });
 

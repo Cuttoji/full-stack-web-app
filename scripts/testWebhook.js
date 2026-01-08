@@ -1,14 +1,13 @@
-import 'dotenv/config';
+require('dotenv').config();
 
-async function main() {
-  const url = process.env.WEBHOOK_LEAVE_URL || process.env.POWER_AUTOMATE_URL || process.env.WEBHOOK_LEAVE_URL;
+(async () => {
+  const url = process.env.WEBHOOK_LEAVE_URL || process.env.POWER_AUTOMATE_URL || process.env.POWER_AUTOMATE_URL;
   if (!url) {
-    console.error('WEBHOOK_LEAVE_URL not set in environment');
+    console.error('WEBHOOK_LEAVE_URL / POWER_AUTOMATE_URL not set in environment');
     process.exit(1);
   }
 
   const payload = {
-    // Simulate an admin-approved leave
     type: 'LEAVE_APPROVED',
     leaveId: 'test-leave-123',
     requesterName: 'ทดสอบ ผู้ขอลา',
@@ -43,6 +42,4 @@ async function main() {
     console.error('Request failed:', err);
     process.exit(1);
   }
-}
-
-main();
+})();

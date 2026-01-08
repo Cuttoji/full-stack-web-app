@@ -642,6 +642,7 @@ export interface AuthUser {
   subUnitId?: string;
   avatar?: string;
   lunchBreakStart?: string;
+  lunchBreakDuration?: number;
   leaveQuota?: number;
   phone?: string;
   permissions?: UserPermissions;
